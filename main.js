@@ -290,6 +290,31 @@ function drawEnemy(e,t){
   const ha=e.atks.find(a=>a.rel&&!a.done); if(ha){ const W=44, f=ha.held?clamp((ha.rel-t)/(ha.rel-ha.time),0,1):1; g.fillStyle='#000a'; g.fillRect(x-W/2,y+21,W,8); g.fillStyle=ha.held?(Math.abs(t-ha.rel)<=win()?'#4f4':'#ff0'):'#fa0'; g.fillRect(x-W/2,y+21,W*f,8); g.strokeStyle='#ff0'; g.lineWidth=1.5; g.strokeRect(x-W/2,y+21,W,8); if(ha.held){ g.save(); g.strokeStyle='#ff0'; g.lineWidth=5; g.beginPath(); g.moveTo(x,y); g.lineTo(PX,GY); g.stroke(); g.restore() } } // 꾹 누르기 몹: 몹 아래 게이지. 누르기 전엔 가득(주황) → 누르면 줄어듦(노랑), 0 = 뗄 타이밍, 뗄 수 있는 구간은 초록 + 누르는 중엔 빔
   g.fillStyle=ty.cols[1];g.font='11px monospace';g.textAlign='center';g.fillText(ty.name+(e.hp>1?' HP'+e.hp:''),x,base-26);g.textAlign='left';
 }
+// ---- 주인공: 후드 쓴 검사. 패링 = 검을 위에서 앞으로 휘두름(0.16초) + 초승달 베기 궤적 + 몸 쏠림, 꾹 누르기 = 검을 앞으로 겨누고 기를 모음(빛 맥동) ----
+function drawHero(tn,pc,lvl){
+  const a=ac?tn-pressT:9, face=P_dir||1, holding=!!down, ph=running?clamp(1-(gridT-tn)/beatLen(),0,1):0;
+  const sw=clamp(a/.16,0,1), ease=1-(1-sw)**3, rec=clamp((a-.16)/.3,0,1);
+  const ang=a<.16?-1.4+ease*1.5:holding?.05+Math.sin(tn*14)*.03:.1-1.3*rec; // 검 각도: 위(-1.4) → 앞(.1)
+  const lean=(a<.25?(1-a/.25)*9:0)+(holding?5:0), bob=-Math.sin(ph*Math.PI)*3, sq=a<.12?1-.06*Math.sin(a/.12*Math.PI):1; // 박자에 맞춰 통통 · 패링 순간 살짝 찌그러짐
+  g.save(); g.translate(PX+face*lean,GY+bob); g.scale(face*sq,1/sq); g.lineJoin='round'; g.lineCap='round';
+  const glow=a<.3||holding; if(glow){ g.shadowColor=pc; g.shadowBlur=holding?14+6*Math.sin(tn*14):18*(1-a/.3) }
+  g.strokeStyle='#ff5a6e'; g.lineWidth=5; g.beginPath(); g.moveTo(-2,-22); g.quadraticCurveTo(-22,-22+Math.sin(tn*8)*4,-38-(a<.3?8:0),-14+Math.sin(tn*8+1)*6); g.stroke(); // 목도리: 뒤로 휘날림
+  const bg=g.createLinearGradient(0,-24,0,34); bg.addColorStop(0,'#1d2a4d'); bg.addColorStop(1,'#0b1020');
+  g.fillStyle=bg; g.strokeStyle=pc; g.lineWidth=2.5; g.beginPath(); g.moveTo(-13,-22); g.lineTo(13,-22); g.lineTo(23,34); g.lineTo(-23,34); g.closePath(); g.fill(); g.stroke(); // 망토
+  g.beginPath(); g.moveTo(-8,34); g.lineTo(0,14); g.lineTo(8,34); g.stroke(); // 망토 주름
+  g.fillStyle='#0b1020'; g.beginPath(); g.arc(0,-35,12,0,7); g.fill(); g.stroke(); // 머리
+  g.beginPath(); g.moveTo(-9,-42); g.lineTo(-13,-54); g.lineTo(-3,-46); g.moveTo(9,-42); g.lineTo(13,-54); g.lineTo(3,-46); g.stroke(); // 후드 뿔
+  g.shadowBlur=0; g.fillStyle='#fff'; g.fillRect(1,-38,9,3.5); g.fillStyle=pc; g.fillRect(3,-37.5,5,2.5); // 눈빛 (앞쪽)
+  g.save(); g.translate(8,-8); g.rotate(ang); if(glow){ g.shadowColor='#fff'; g.shadowBlur=12 }
+  g.strokeStyle='#cfd8ee'; g.lineWidth=4; g.beginPath(); g.moveTo(4,0); g.lineTo(48,0); g.stroke(); // 검날
+  g.strokeStyle=pc; g.lineWidth=5; g.beginPath(); g.moveTo(4,-7); g.lineTo(4,7); g.stroke(); g.restore(); // 가드
+  g.restore();
+  if(a<.22){ const k=1-a/.22; g.save(); g.translate(PX,GY-8); g.scale(face,1); g.lineCap='round'; // 초승달 베기: 바깥/안쪽 두 호가 빠르게 사라짐
+    g.strokeStyle='rgba(255,255,255,'+k+')'; g.lineWidth=9*k; g.beginPath(); g.arc(0,0,62,-1.1,1.1); g.stroke();
+    g.strokeStyle=pc; g.globalAlpha=k*.8; g.lineWidth=4*k; g.beginPath(); g.arc(0,0,52,-1,1); g.stroke(); g.restore() }
+  if(holding&&ac){ g.save(); g.translate(PX,GY-8); g.scale(face,1); g.strokeStyle=pc; g.globalAlpha=.35+.25*Math.sin(tn*14); g.lineWidth=4; g.beginPath(); g.arc(0,0,62,-1.1,1.1); g.stroke(); // 꾹 누르기: 기 모으는 방패 호 + 모여드는 입자
+    g.fillStyle='#fff'; for(let k=0;k<6;k++){ const p=(tn*1.5+k/6)%1, r=95*(1-p), t=(k*2.1)%1.4-.7; g.globalAlpha=p; g.fillRect(Math.cos(t)*r-1,Math.sin(t)*r-1,3,3) } g.restore() }
+}
 function draw(){ // 피격: 화면 흔들림 + 붉은 번쩍임
   const a=ac?now()-hurtT:9, sh=a<.35?(1-a/.35)*8:0;
   g.save(); g.translate((Math.random()-.5)*2*sh,(Math.random()-.5)*2*sh); scene(a); g.restore();
@@ -310,8 +335,7 @@ function scene(hurtAge){
   g.textAlign='left';
   if(running) [...enemies].sort((a,b)=>b.lane-a.lane).forEach(e=>drawEnemy(e,now()));
   const pc=lvl>=6?'hsl('+(tn*160%360)+',90%,70%)':'#9ad0ff'; g.strokeStyle=pc; g.fillStyle=pc+(lvl>=6?'':'33'); g.lineWidth=3; if(lvl>=6) g.fillStyle='rgba(255,255,255,.12)';
-  poly([[0,-1],[.9,.8],[-.9,.8]],PX,GY,40,0,1,1); g.fill(); g.stroke();
-  if(ac&&(now()-pressT<.2||down)){g.strokeStyle='#fff';g.lineWidth=7;g.beginPath();g.arc(PX,GY,62,P_dir>0?-1.1:Math.PI-1.1,P_dir>0?1.1:Math.PI+1.1);g.stroke();g.lineWidth=3}
+  drawHero(tn,pc,lvl);
   g.fillStyle='#eee';g.font='16px monospace';
   g.fillStyle=hurtAge<.3?'#f55':'#eee'; g.fillText('HP '+'♥'.repeat(Math.max(P||0,0)),20,40);
   lost=lost.filter(h=>now()-h.t0<.8); for(const h of lost){ const t=now()-h.t0; g.save(); g.globalAlpha=1-t/.8; g.fillStyle='#f33'; g.translate(h.x,40+t*110); g.rotate(t*3); g.fillText('♥',0,0); g.restore() } // 잃은 하트가 깨져 떨어짐

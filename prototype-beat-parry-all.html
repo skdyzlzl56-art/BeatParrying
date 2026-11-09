@@ -1,10 +1,11 @@
 <!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><title>PROTOTYPE - Beat Parry 1~23 (throwaway)</title>
 <style>
-body{margin:0;background:#111;color:#eee;font:14px monospace;text-align:center}
-canvas{background:#1b1b2a;display:block;margin:4px auto;width:min(100vw,calc((100vh - 70px)*2));height:auto}
+body{margin:0;background:#141833;color:#9aa6c8;font:12px monospace;text-align:center;min-height:100vh}
+canvas{background:#12152a;border-radius:10px;box-shadow:0 0 0 1px #2c3764;display:block;margin:4px auto;width:min(100vw,calc((100vh - 70px)*2));height:auto}
 #ui{padding:4px}
-input{width:60px}
+input{width:60px;background:#12152a;color:#cfd8ee;border:1px solid #2c3764;border-radius:4px}
+button{background:#1a2040;color:#cfd8ee;border:1px solid #2c3764;border-radius:4px;cursor:pointer}button:hover{background:#2a3770}
 </style></head><body>
 <div>PROTOTYPE (23스테이지: 19~23 박자 몹 엇박·복습·에코·엇박+엇박3연타·엇박3연타 / 1~6 기본 · 7~12 빠른 변주 · 13~15 스윙 · 16~18 칩튠) — A/D 또는 ←/→ 로 패링. 적이 박자에 맞춰 다가와 7박째에 공격, 공격 땐 다른 음 (1마리씩). (Space/Enter = 시작/재시작)</div>
 <div style="position:fixed;top:4px;right:4px;max-width:340px;text-align:right">DEBUG <button onclick="goStage(1,this)">ST1</button> <button onclick="goStage(2,this)">ST2</button> <button onclick="goStage(3,this)">ST3</button> <button onclick="goStage(4,this)">ST4</button> <button onclick="goStage(5,this)">ST5</button> <button onclick="goStage(6,this)">ST6</button> <button onclick="goStage(7,this)">ST7</button> <button onclick="goStage(8,this)">ST8</button> <button onclick="goStage(9,this)">ST9</button> <button onclick="goStage(10,this)">ST10</button> <button onclick="goStage(11,this)">ST11</button> <button onclick="goStage(12,this)">ST12</button> <button onclick="goStage(13,this)">ST13</button> <button onclick="goStage(14,this)">ST14</button> <button onclick="goStage(15,this)">ST15</button> <button onclick="goStage(16,this)">ST16</button> <button onclick="goStage(17,this)">ST17</button> <button onclick="goStage(18,this)">ST18</button> <button onclick="goStage(19,this)">ST19</button> <button onclick="goStage(20,this)">ST20</button> <button onclick="goStage(21,this)">ST21</button> <button onclick="goStage(22,this)">ST22</button> <button onclick="goStage(23,this)">ST23</button> <button onclick="goStage(24,this)">ST24</button> <button onclick="goStage(25,this,'normal')">BOSS1 N</button> <button onclick="goStage(25,this,'hard')">BOSS1 H</button> <button onclick="goStage(26,this,'normal')">BOSS2 N</button> <button onclick="goStage(26,this,'hard')">BOSS2 H</button> <button onclick="goStage(27,this,'normal')">BOSS3 N</button> <button onclick="goStage(27,this,'hard')">BOSS3 H</button> </div>

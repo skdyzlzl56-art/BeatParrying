@@ -304,17 +304,31 @@ function drawHero(tn,pc,lvl){
   const a=ac?tn-pressT:9, face=P_dir||1, holding=!!down, ph=running?clamp(1-(gridT-tn)/beatLen(),0,1):0;
   const k=clamp(a/.12,0,1), snap=1-(1-k)**4, back=clamp((a-.12)/.25,0,1);
   const pulse=1+Math.sin(ph*Math.PI)*.1, kick=a<.2?(1-a/.2)*10:0, hot=a<.3||holding;
-  g.save(); g.translate(PX-face*kick,GY); if(hot){ g.shadowColor=pc; g.shadowBlur=holding?14+6*Math.sin(tn*14):20*(1-a/.3) }
-  g.rotate(tn*.9+(a<.3?(1-a/.3)*3:0)); g.strokeStyle=pc; g.fillStyle=pc+'22'; g.lineWidth=3; g.beginPath(); g.moveTo(0,-36*pulse); g.lineTo(26*pulse,0); g.lineTo(0,36*pulse); g.lineTo(-26*pulse,0); g.closePath(); g.fill(); g.stroke(); // 코어 마름모
-  g.rotate(-tn*1.8); g.strokeStyle='#fff'; g.lineWidth=2; g.beginPath(); g.arc(0,0,13,0,7); g.stroke(); g.fillStyle='#fff'; g.beginPath(); g.arc(0,0,4,0,7); g.fill(); g.restore(); // 안쪽 링 + 점
-  { const n=3+Math.min(lvl,3), pts=Array.from({length:n},(_,k)=>{ const t=tn*1.6+k*6.283/n; return [Math.cos(t)*52,Math.sin(t)*52*.7,t] }), fl=clamp(1-(tn-starT)/.7,0,1); // 별자리: 콤보가 오를수록 파편을 잇는 선이 늘어남 (1 사슬 · 3 닫힘 · 4 별 모양 · 5 코어와 연결 · 6 달성 순간 번쩍)
-    g.save(); g.translate(PX,GY); g.strokeStyle=pc; g.lineWidth=1; const ln=(p,q,al)=>{ g.globalAlpha=Math.min(1,al+fl); g.beginPath(); g.moveTo(p[0],p[1]); g.lineTo(q[0],q[1]); g.stroke() };
-    if(lvl>=1) for(let k=0;k<n;k++) if(lvl>=3||k<n-1) ln(pts[k],pts[(k+1)%n],.35);
-    if(lvl>=4) for(let k=0;k<n;k++) ln(pts[k],pts[(k+2)%n],.2);
-    if(lvl>=5) for(let k=0;k<n;k++) ln([0,0],pts[k],.18);
-    g.globalAlpha=1; g.fillStyle=pc; for(const p of pts){ g.save(); g.translate(p[0],p[1]); g.rotate(p[2]*2); g.fillRect(-3,-3,6,6); g.restore() }
-    if(fl>0){ g.strokeStyle='rgba(255,255,255,'+fl+')'; g.lineWidth=3; g.beginPath(); g.arc(0,0,(1-fl)*170,0,7); g.stroke() }
-    g.restore() }
+  // 3D 구체: 위도·경도 선을 회전/원근 투영하고 깊이로 밝기를 줌 (뒤쪽 선은 흐리게). 선 위를 달리는 빛 = 표면을 도는 별. 파편은 구 둘레 궤도에서 앞/뒤로 지나감
+  const rr=34*pulse, ay=tn*.7+(a<.3?(1-a/.3)*3:0), ca=Math.cos(ay), sa=Math.sin(ay), ct=Math.cos(.45), st=Math.sin(.45);
+  const P3=(x,y,z)=>{ const x1=x*ca+z*sa, z1=-x*sa+z*ca, y2=y*ct-z1*st, z2=y*st+z1*ct, f=300/(300-z2); return [x1*f,y2*f,z2] }; // y축 회전 → 기울임 → 원근
+  const n=3+Math.min(lvl,3), pts=Array.from({length:n},(_,k)=>{ const t=tn*1.6+k*6.283/n; return [Math.cos(t)*58,Math.sin(t)*58*.5,t,Math.sin(t)] }), fl=clamp(1-(tn-starT)/.7,0,1); // 별자리 선(1 사슬 · 3 닫힘 · 4 별 모양 · 5 코어와 연결 · 6 달성 순간 번쩍)
+  g.save(); g.translate(PX-face*kick,GY); g.lineCap='round';
+  g.strokeStyle=pc; g.lineWidth=1; const ln=(p,q,al)=>{ g.globalAlpha=Math.min(1,al+fl); g.beginPath(); g.moveTo(p[0],p[1]); g.lineTo(q[0],q[1]); g.stroke() };
+  if(lvl>=1) for(let k=0;k<n;k++) if(lvl>=3||k<n-1) ln(pts[k],pts[(k+1)%n],.3);
+  if(lvl>=4) for(let k=0;k<n;k++) ln(pts[k],pts[(k+2)%n],.18);
+  if(lvl>=5) for(let k=0;k<n;k++) ln([0,0],pts[k],.15);
+  const shard=p=>{ g.save(); g.translate(p[0],p[1]); g.rotate(p[2]*2); const s=1+.4*p[3]; g.globalAlpha=.55+.45*(p[3]+1)/2; g.fillStyle=pc; g.fillRect(-3*s,-3*s,6*s,6*s); g.restore() };
+  g.globalAlpha=1; for(const p of pts) if(p[3]<=0) shard(p); // 뒤쪽 파편
+  if(hot){ g.shadowColor=pc; g.shadowBlur=holding?14+6*Math.sin(tn*14):20*(1-a/.3) }
+  const gr=g.createRadialGradient(-rr*.35,-rr*.4,rr*.1,0,0,rr); gr.addColorStop(0,'rgba(255,255,255,.35)'); gr.addColorStop(.5,'rgba(60,80,140,.35)'); gr.addColorStop(1,'rgba(10,16,32,.9)');
+  g.globalAlpha=1; g.fillStyle=gr; g.beginPath(); g.arc(0,0,rr,0,7); g.fill(); g.strokeStyle=pc; g.lineWidth=2; g.stroke(); g.shadowBlur=0; // 구 몸통 + 외곽선
+  const seg=(p,q)=>{ const d=(p[2]+q[2])/(2*rr); g.globalAlpha=.1+.5*(d+1)/2; g.beginPath(); g.moveTo(p[0],p[1]); g.lineTo(q[0],q[1]); g.stroke() };
+  g.strokeStyle=pc; g.lineWidth=1.1;
+  for(const ph of [-1.05,-.52,0,.52,1.05]){ let pr=P3(Math.cos(ph)*rr,Math.sin(ph)*rr,0); for(let u=.35;u<=6.64;u+=.35){ const q=P3(Math.cos(ph)*Math.cos(u)*rr,Math.sin(ph)*rr,Math.cos(ph)*Math.sin(u)*rr); seg(pr,q); pr=q } } // 위도선
+  for(let m=0;m<6;m++){ const lo=m*Math.PI/6, cl=Math.cos(lo), sl=Math.sin(lo); let pr=P3(rr*cl,0,rr*sl); for(let u=.35;u<=6.64;u+=.35){ const q=P3(Math.cos(u)*cl*rr,Math.sin(u)*rr,Math.cos(u)*sl*rr); seg(pr,q); pr=q } } // 경도선
+  for(let k=0,rn=1+Math.min(lvl,3);k<rn;k++){ const bt=k*1.05, cb=Math.cos(bt), sb=Math.sin(bt), at=u=>P3(Math.cos(u)*rr,Math.sin(u)*cb*rr,Math.sin(u)*sb*rr), u0=tn*1.9+k*2.1; // 표면을 달리는 빛 + 꼬리
+    let pr=at(u0); for(let i=1;i<=16;i++){ const q=at(u0-i*.085), w=1-i/16, d=(q[2]+rr)/(2*rr); g.globalAlpha=w*(.25+.75*d); g.strokeStyle='#fff'; g.lineWidth=.8+3*w; g.beginPath(); g.moveTo(pr[0],pr[1]); g.lineTo(q[0],q[1]); g.stroke(); pr=q }
+    const h=at(u0); g.globalAlpha=.3+.7*(h[2]+rr)/(2*rr); g.fillStyle='#fff'; g.shadowColor=pc; g.shadowBlur=10; g.beginPath(); g.arc(h[0],h[1],3.2,0,7); g.fill(); g.shadowBlur=0 }
+  g.globalAlpha=.4; g.fillStyle='#fff'; g.beginPath(); g.ellipse(-rr*.38,-rr*.45,rr*.16,rr*.09,-.7,0,7); g.fill(); // 하이라이트
+  g.globalAlpha=1; for(const p of pts) if(p[3]>0) shard(p); // 앞쪽 파편 (구를 가리고 지나감)
+  if(fl>0){ g.strokeStyle='rgba(255,255,255,'+fl+')'; g.lineWidth=3; g.beginPath(); g.arc(0,0,(1-fl)*170,0,7); g.stroke() }
+  g.restore();
   for(const d of [-1,1]){ const hd=!!kd[d], sw=d===face; if(!hd&&!sw) continue; // 눌린 방향마다 반사판 (롱홀드 중 반대쪽도 쳐낼 수 있음)
     const R=hd?66+3*Math.sin(tn*14):a<.12?36+snap*32:36+32*(1-back), fresh=sw&&a<.3;
     g.save(); g.translate(PX,GY); g.scale(d,1); g.lineCap='round';

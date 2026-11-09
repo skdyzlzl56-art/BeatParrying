@@ -1,6 +1,6 @@
 
 const $=id=>document.getElementById(id), cv=$('c'), g=cv.getContext('2d');
-let down=0, ac, running=false, over='', P, kills, enemies=[], gridT, ci, flash=0, msg='', fx=[], flung=[], lost=[], hurtT=-9, P_dir=0, pressT=-9;
+let down=0, kd={'-1':0,'1':0}, ac, running=false, over='', P, kills, enemies=[], gridT, ci, flash=0, msg='', fx=[], flung=[], lost=[], hurtT=-9, P_dir=0, pressT=-9;
 let pendG=null, groupEnd=0; const MAX_ACTIVE=5, CELL=45, NEAR=50; let sc=0, nx=0; // MAX_ACTIVE = 동시 적 수
 const beatLen=()=>60/(+$('bpm').value||120);
 const now=()=>ac.currentTime;
@@ -131,11 +131,11 @@ let bossT0=0, bossTotal=0, bossQ=[], bossMode='normal';
 function enterBoss(n=25,mode='normal'){
   stage=n; bossMode=mode; setBpm(); enemies=[]; kills=0; streak=0; sc=0; nx=0; pendG=null; groupEnd=0; over=''; msg='BOSS STAGE'; flash=3;
   gridT=now()+beatLen()*2; ci=0; bgT=gridT; bgI=0; bossT0=gridT; bossQ=[]; bossTotal=0; // 2박 카운트인 후 0박 = 곡 시작
-  BOSSES[n].script[mode].forEach((row,c)=>row.split(' ').forEach(tok=>{ const [,ty,sd,off]=/^([a-z])([LR]?)(\d*)$/.exec(tok);
-    bossQ.push({b:8*c+(+off||0),ty,side:sd==='L'?-1:sd==='R'?1:0}) }));
+  BOSSES[n].script[mode].forEach((row,c)=>row.split(' ').forEach(tok=>{ const [,ty,sd,off,len]=/^([a-z])([LR]?)(\d*)(?::(\d+))?$/.exec(tok);
+    bossQ.push({b:8*c+(+off||0),len:+len||0,ty,side:sd==='L'?-1:sd==='R'?1:0}) }));
 }
 function bossBeat(t,b){
-  for(const o of bossQ) if(o.b===b){ spawnForm(t,FORMS[BOSS_FORM[o.ty]],{boss:true,side:o.side}) }
+  for(const o of bossQ) if(o.b===b){ spawnForm(t,FORMS[BOSS_FORM[o.ty]],{boss:true,side:o.side,len:o.len}) }
   if(b===BOSSES[stage].beats+2){ over='BOSS CLEAR!  kills:'+kills+'/'+bossTotal; running=false } // 마지막 크래시가 울린 뒤 종료
 }
 const G=n=>streak>=LAYERS[n]; // 보스 곡도 콤보 레이어가 찰 때만 해당 파트가 울림 (0 하이햇 · 1 스네어 · 2 베이스 · 3 아르페지오 · 4 멜로디 · 5 옥타브)
@@ -179,7 +179,7 @@ function bossBg2(at,i){
 }
 function start(){
   ac=ac||new AudioContext(); ac.resume();
-  P=5; kills=0; enemies=[]; sc=0; nx=0; stage=1; over=''; fx=[]; flung=[]; lost=[]; hurtT=-9; msg='';
+  P=5; kills=0; enemies=[]; sc=0; nx=0; stage=1; over=''; fx=[]; flung=[]; lost=[]; kd[-1]=kd[1]=0; hurtT=-9; msg='';
   setBpm(); gridT=now()+beatLen()*2; ci=0; running=true; bgT=gridT; bgI=0; streak=0; groupEnd=0; pendG=null; // 2박 카운트인, 이후 normal 한 박 간격 격자에서만 스폰
 }
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
@@ -192,7 +192,7 @@ function mk(t,type){
 }
 function spawnForm(t,f,o={}){ // 편성(FORMS) 하나를 기본 몹(MOBS)으로 풀어서 내보냄. o.boss = 한 사이클만 공격 · o.side = 방향 지정(생략 = 랜덤)
   const m=MOBS[f.mob], shared=o.side||(Math.random()<.5?-1:1);
-  for(const u of f.build?f.build():f.units) mk(t,{...m,...u,boss:o.boss,side:u.side||o.side||(f.same?shared:0)});
+  for(const u of f.build?f.build(o):f.units) mk(t,{...m,...u,boss:o.boss,side:u.side||o.side||(f.same?shared:0)});
 }
 function trySpawn(t){
   if(BOSSES[stage]){ bossBeat(t,sc++); return }
@@ -240,7 +240,7 @@ addEventListener('keydown',e=>{
   const dir=dirOf(k);
   if(!dir||!running) return;
   e.preventDefault();
-  P_dir=dir; pressT=now(); down=dir;
+  P_dir=dir; pressT=now(); kd[dir]=1; down=dir;
   const t=now()-(+$('off').value||0)/1000;
   const c=enemies.flatMap(e=>e.atks.filter(a=>!a.done&&!a.held&&Math.abs(t-a.time)<=win()).map(a=>({e,a})));
   if(!c.length){ whiff(); return } // 허공 패링 = 콤보 1칸 하락
@@ -257,7 +257,7 @@ addEventListener('keydown',e=>{
 addEventListener('keyup',e=>{ // 꾹 누르기 판정: 뗄 타이밍(rel) ±win 이면 성공, 너무 일찍 떼면 실패 (너무 늦으면 step 에서 HOLD TOO LONG)
   const dir=dirOf(e.key.toLowerCase());
   if(!dir||!running) return;
-  if(down===dir) down=0;
+  kd[dir]=0; down=kd[P_dir]?P_dir:kd[-1]?-1:kd[1]?1:0;
   const t=now()-(+$('off').value||0)/1000;
   for(const en of enemies.slice()) for(const a of en.atks) if(a.held&&!a.done&&a.dir===dir&&enemies.includes(en)){
     const dt=t-a.rel, ms=Math.round(dt*1000)+'ms';
@@ -301,13 +301,14 @@ function drawHero(tn,pc,lvl){
   g.rotate(tn*.9+(a<.3?(1-a/.3)*3:0)); g.strokeStyle=pc; g.fillStyle=pc+'22'; g.lineWidth=3; g.beginPath(); g.moveTo(0,-36*pulse); g.lineTo(26*pulse,0); g.lineTo(0,36*pulse); g.lineTo(-26*pulse,0); g.closePath(); g.fill(); g.stroke(); // 코어 마름모
   g.rotate(-tn*1.8); g.strokeStyle='#fff'; g.lineWidth=2; g.beginPath(); g.arc(0,0,13,0,7); g.stroke(); g.fillStyle='#fff'; g.beginPath(); g.arc(0,0,4,0,7); g.fill(); g.restore(); // 안쪽 링 + 점
   g.save(); g.translate(PX,GY); g.fillStyle=pc; for(let i=0,n=3+Math.min(lvl,3);i<n;i++){ const t=tn*1.6+i*6.283/n; g.save(); g.translate(Math.cos(t)*52,Math.sin(t)*52*.7); g.rotate(t*2); g.fillRect(-3,-3,6,6); g.restore() } g.restore(); // 맴도는 파편 (콤보 따라 늘어남)
-  const R=holding?66+3*Math.sin(tn*14):a<.12?36+snap*32:36+32*(1-back); // 반사판 반지름: 안 → 밖으로 튕김 → 복귀
-  g.save(); g.translate(PX,GY); g.scale(face,1); g.lineCap='round';
-  g.strokeStyle='rgba(255,255,255,'+(a<.4||holding?1:.55)+')'; g.lineWidth=7; g.beginPath(); g.arc(0,0,R,-.8,.8); g.stroke(); g.strokeStyle=pc; g.lineWidth=3; g.beginPath(); g.arc(0,0,R-6,-.7,.7); g.stroke(); // 반사판
-  if(a<.3){ const q=1-a/.3; g.strokeStyle='rgba(255,255,255,'+q+')'; g.lineWidth=2; for(let i=-2;i<=2;i++){ const y=i*13, x0=R+a*600*(1-Math.abs(i)*.15); g.beginPath(); g.moveTo(x0,y); g.lineTo(x0+36*q,y*1.2); g.stroke() } // 속도선 (튕겨 나감)
-    g.fillStyle=pc; for(let i=0;i<8;i++){ const t=(i/8-.5)*1.6, d=R+a*(300+i*40); g.globalAlpha=q; g.fillRect(Math.cos(t)*d-2,Math.sin(t)*d-2,4,4) } } // 불꽃
-  if(holding&&ac){ g.globalAlpha=.9; g.fillStyle='#fff'; for(let i=0;i<6;i++){ const p=(tn*1.5+i/6)%1, r=100*(1-p), t=(i*2.1)%1.4-.7; g.globalAlpha=p; g.fillRect(Math.cos(t)*r-1,Math.sin(t)*r-1,3,3) } } // 꾹 누르기: 에너지 모임
-  g.restore();
+  for(const d of [-1,1]){ const hd=!!kd[d], sw=d===face; if(!hd&&!sw) continue; // 눌린 방향마다 반사판 (롱홀드 중 반대쪽도 쳐낼 수 있음)
+    const R=hd?66+3*Math.sin(tn*14):a<.12?36+snap*32:36+32*(1-back), fresh=sw&&a<.3;
+    g.save(); g.translate(PX,GY); g.scale(d,1); g.lineCap='round';
+    g.strokeStyle='rgba(255,255,255,'+(a<.4&&sw||hd?1:.55)+')'; g.lineWidth=7; g.beginPath(); g.arc(0,0,R,-.8,.8); g.stroke(); g.strokeStyle=pc; g.lineWidth=3; g.beginPath(); g.arc(0,0,R-6,-.7,.7); g.stroke(); // 반사판
+    if(fresh){ const q=1-a/.3; g.strokeStyle='rgba(255,255,255,'+q+')'; g.lineWidth=2; for(let i=-2;i<=2;i++){ const y=i*13, x0=R+a*600*(1-Math.abs(i)*.15); g.beginPath(); g.moveTo(x0,y); g.lineTo(x0+36*q,y*1.2); g.stroke() } // 속도선 (튕겨 나감)
+      g.fillStyle=pc; for(let i=0;i<8;i++){ const t=(i/8-.5)*1.6, dd=R+a*(300+i*40); g.globalAlpha=q; g.fillRect(Math.cos(t)*dd-2,Math.sin(t)*dd-2,4,4) } } // 불꽃
+    if(hd&&ac){ g.fillStyle='#fff'; for(let i=0;i<6;i++){ const p=(tn*1.5+i/6)%1, rr=100*(1-p), t=(i*2.1)%1.4-.7; g.globalAlpha=p; g.fillRect(Math.cos(t)*rr-1,Math.sin(t)*rr-1,3,3) } } // 꾹 누르기: 에너지 모임
+    g.restore() }
 }
 function draw(){ // 피격: 화면 흔들림 + 붉은 번쩍임
   const a=ac?now()-hurtT:9, sh=a<.35?(1-a/.35)*8:0;

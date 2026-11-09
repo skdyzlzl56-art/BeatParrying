@@ -188,7 +188,7 @@ const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 function newCycle(e,cs){ e.cs=cs; e.sl=beatLen()/e.type.speed; e.slotDone=-1; e.N=e.type.pat.length; e.sI=e.type.pat.indexOf(2); let ai=0; e.atks=e.type.pat.flatMap((v,i)=>{ if(v!==2) return []; const n2=e.type.pat.indexOf(2,i+1), j=e.type.pat.indexOf(4,i+1); // 2 뒤에 4가 있으면 꾹 누르기: 2 = 누를 타이밍, 4 = 뗄 타이밍
     return [{dir:e.type.dirs?e.type.dirs[ai++]:e.side,time:cs+i*e.sl,done:false,rel:j>=0&&(n2<0||j<n2)?cs+j*e.sl:0}] }); } // dirs: 타격마다 막을 방향을 따로 지정 (에코 따당 = 좌→우)
 function mk(t,type){
-  const side=type.side||(Math.random()<.5?-1:1), e={side, type, hp:0, lane:[0,1,2,3,4,5,6].find(l=>!enemies.some(o=>o.lane===l&&o.side===side))};
+  const side=type.side||(Math.random()<.5?-1:1), e={side, type, hp:0};
   if(BOSSES[stage]) bossTotal++; // 보스 HUD 의 전체 마리 수 = 지금까지 나온 마리
   e.hp=type.hp||type.pat.filter(v=>v===2).length; newCycle(e,t); enemies.push(e);
 }
@@ -276,13 +276,13 @@ function poly(pts,x,y,r,rot,sx,sy){
     const qx=x+X*c-Y*n,qy=y+X*n+Y*c; i?g.lineTo(qx,qy):g.moveTo(qx,qy)});
   g.closePath();
 }
-const PX=360, GY=262;
+const PX=360, GY=262; let STEP=40; // STEP = 줄 사이 간격(px), 몹이 7마리를 넘으면 위쪽 끝(240px)에 맞춰 좁아짐
 function drawEnemy(e,t){
   const el=t-e.cs; if(el<0) return;
   const ty=e.type, pat=ty.pat, N=e.N, sI=e.sI, k=clamp(Math.floor(el/e.sl),0,N-1), s=e.side, ph=el/e.sl-k;
   const warn=!e.atks[0].done&&el>=(sI-(ty.w||1))*e.sl&&el<sI*e.sl; // 공격 한 박 전: 빛남
   const sp=ty.speed, sB=Math.floor(sI/sp), num=ty.once?Math.max(0,sB-Math.floor(k/sp)):pat.slice(k+1,sI+1).filter(v=>v).length, /* 4몹(연두): 눈금 한 칸 다가올 때마다 1씩 감소 */ /* 소리 날 때마다 1씩 감소 */ dist=NEAR+CELL*(.5+Math.min(6,Math.max(0,sB-Math.floor(k/sp)))), /* 눈금 한 칸 = 1박, 칸 가운데에 위치 */ hop=(pat[k]&&k<=sI)?14*Math.max(0,1-ph*5):0; // 슬롯이 아니라 '박' 기준으로 한 칸씩 (눈금과 일치)
-  const lane=e.lane, R=27*(ty.size||1), x=PX+s*dist, base=GY-lane*40, y=base-hop, gl=2; e.px=x; e.py=y; // 높이 일정 · gl = 3색 원 겹침 간격(고정)
+  const lane=e.ly=e.ly==null?e.lt:e.ly+(e.lt-e.ly)*.18, R=27*(ty.size||1), x=PX+s*dist, base=GY-lane*STEP, y=base-hop, gl=2; e.px=x; e.py=y; // 높이 일정 · gl = 3색 원 겹침 간격(고정)
   g.save();
   if(warn){g.shadowColor=ty.cols[0];g.shadowBlur=25}
   g.globalCompositeOperation='lighter';
@@ -347,7 +347,9 @@ function scene(hurtAge){
   g.stroke(); g.lineWidth=3; g.fillStyle=BONE+'aa'; g.font=FN(12); g.textAlign='center';
   for(let i=0;i<7;i++) for(const s of [-1,1]) g.fillText(i,PX+s*(NEAR+(i+.5)*CELL),345);
   g.textAlign='left';
-  if(running) [...enemies].sort((a,b)=>b.lane-a.lane).forEach(e=>drawEnemy(e,now()-(+$('voff').value||0)/1000));
+  if(running){ const ord=enemies.map(e=>{ const a=e.atks.find(x=>!x.done); return {e,t:a?(a.held?a.rel:a.time):1e9} }).sort((p,q)=>p.t-q.t||p.e.side-q.e.side); // 다음 공격 시각이 빠른 순 (같으면 왼쪽 먼저)
+    STEP=ord.length>7?240/(ord.length-1):40; ord.forEach((o,i)=>o.e.lt=i) }
+  if(running) [...enemies].sort((a,b)=>(b.ly||0)-(a.ly||0)).forEach(e=>drawEnemy(e,now()-(+$('voff').value||0)/1000));
   const pc=lvl>=6?'hsl('+(tn*160%360)+',90%,70%)':'#9ad0ff'; g.strokeStyle=pc; g.fillStyle=pc+(lvl>=6?'':'33'); g.lineWidth=3; if(lvl>=6) g.fillStyle='rgba(255,255,255,.12)';
   drawHero(tn,pc,lvl);
   g.font=FN(16); g.fillStyle=hurtAge<.3?'#ff5a6e':BONE; g.fillText('HP '+'♥'.repeat(Math.max(P||0,0)),20,48);

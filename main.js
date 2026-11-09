@@ -1,6 +1,6 @@
 
 const $=id=>document.getElementById(id), cv=$('c'), g=cv.getContext('2d');
-let down=0, ac, running=false, over='', P, kills, enemies=[], gridT, ci, flash=0, msg='', fx=[], P_dir=0, pressT=-9;
+let down=0, ac, running=false, over='', P, kills, enemies=[], gridT, ci, flash=0, msg='', fx=[], lost=[], hurtT=-9, P_dir=0, pressT=-9;
 let pendG=null, groupEnd=0; const MAX_ACTIVE=5, CELL=45, NEAR=50; let sc=0, nx=0; // MAX_ACTIVE = 동시 적 수
 const beatLen=()=>60/(+$('bpm').value||120);
 const now=()=>ac.currentTime;
@@ -151,7 +151,7 @@ function bossBg2(at,i){
 }
 function start(){
   ac=ac||new AudioContext(); ac.resume();
-  P=5; kills=0; enemies=[]; sc=0; nx=0; stage=1; over=''; fx=[]; msg='';
+  P=5; kills=0; enemies=[]; sc=0; nx=0; stage=1; over=''; fx=[]; lost=[]; hurtT=-9; msg='';
   setBpm(); gridT=now()+beatLen()*2; ci=0; running=true; bgT=gridT; bgI=0; streak=0; groupEnd=0; pendG=null; // 2박 카운트인, 이후 normal 한 박 간격 격자에서만 스폰
 }
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
@@ -200,7 +200,7 @@ function resolve(e,a,txt,ok){
   if(!ok&&e.type.once) enemies=enemies.filter(o=>o!==e); // 4몹은 실패해도 한 번 공격하면 사라짐 (남아서 다음 그룹과 겹치지 않게)
   if(ok) streak++; else { const lv=Math.max(0,LAYERS.filter(n=>streak>=n).length-2); streak=lv?LAYERS[lv-1]:0 } // 실패: 레이어 2단계 하락
   if(ok){ parrySfx(Math.max(now(),a.rel||a.time),txt[0]==='P'); e.hp-=DMG; if(e.hp<=0){enemies=enemies.filter(o=>o!==e);kills++; if(kills>=goal()){ if(stage<24) setStage(stage+1); else enterBoss(25) }
-      e.type.pat.forEach((v,i)=>{ if(v===2&&i>e.slotDone&&e.type.atkSound) tick(e.type.hz,true,e.type.bell,e.cs+i*e.sl) }) } /* 일찍 죽여도 남은 공격 소리는 그대로 */ } else { P-=DMG; missSfx() }
+      e.type.pat.forEach((v,i)=>{ if(v===2&&i>e.slotDone&&e.type.atkSound) tick(e.type.hz,true,e.type.bell,e.cs+i*e.sl) }) } /* 일찍 죽여도 남은 공격 소리는 그대로 */ } else { P-=DMG; hurtT=now(); lost.push({x:20+9.6*(3+Math.max(P,0)),t0:hurtT}); missSfx() }
 }
 const dirOf=k=>(k==='a'||k==='arrowleft')?-1:(k==='d'||k==='arrowright')?1:0;
 addEventListener('keydown',e=>{
@@ -259,7 +259,12 @@ function drawEnemy(e,t){
   const ha=e.atks.find(a=>a.rel&&!a.done); if(ha){ const W=44, f=ha.held?clamp((ha.rel-t)/(ha.rel-ha.time),0,1):1; g.fillStyle='#000a'; g.fillRect(x-W/2,y+21,W,8); g.fillStyle=ha.held?(Math.abs(t-ha.rel)<=win()?'#4f4':'#ff0'):'#fa0'; g.fillRect(x-W/2,y+21,W*f,8); g.strokeStyle='#ff0'; g.lineWidth=1.5; g.strokeRect(x-W/2,y+21,W,8); if(ha.held){ g.save(); g.strokeStyle='#ff0'; g.lineWidth=5; g.beginPath(); g.moveTo(x,y); g.lineTo(PX,GY); g.stroke(); g.restore() } } // 꾹 누르기 몹: 몹 아래 게이지. 누르기 전엔 가득(주황) → 누르면 줄어듦(노랑), 0 = 뗄 타이밍, 뗄 수 있는 구간은 초록 + 누르는 중엔 빔
   g.fillStyle=ty.cols[1];g.font='11px monospace';g.textAlign='center';g.fillText(ty.name+(e.hp>1?' HP'+e.hp:''),x,base-26);g.textAlign='left';
 }
-function draw(){
+function draw(){ // 피격: 화면 흔들림 + 붉은 번쩍임
+  const a=ac?now()-hurtT:9, sh=a<.35?(1-a/.35)*8:0;
+  g.save(); g.translate((Math.random()-.5)*2*sh,(Math.random()-.5)*2*sh); scene(a); g.restore();
+  if(a<.4){ g.fillStyle='rgba(255,0,0,'+.35*(1-a/.4)+')'; g.fillRect(0,0,720,360) }
+}
+function scene(hurtAge){
   g.clearRect(0,0,720,360); g.lineJoin='round'; g.lineWidth=3;
   g.fillStyle='#333'; g.fillRect(0,300,720,60);
   g.strokeStyle='#999'; g.lineWidth=2; g.beginPath(); // 줄자: 칸 하나 = 1박, 0칸 = 공격 위치
@@ -273,7 +278,9 @@ function draw(){
   poly([[0,-1],[.9,.8],[-.9,.8]],PX,GY,40,0,1,1); g.fill(); g.stroke();
   if(ac&&(now()-pressT<.2||down)){g.strokeStyle='#fff';g.lineWidth=7;g.beginPath();g.arc(PX,GY,62,P_dir>0?-1.1:Math.PI-1.1,P_dir>0?1.1:Math.PI+1.1);g.stroke();g.lineWidth=3}
   g.fillStyle='#eee';g.font='16px monospace';
-  g.fillText('HP '+'♥'.repeat(Math.max(P||0,0)),20,40);
+  g.fillStyle=hurtAge<.3?'#f55':'#eee'; g.fillText('HP '+'♥'.repeat(Math.max(P||0,0)),20,40);
+  lost=lost.filter(h=>now()-h.t0<.8); for(const h of lost){ const t=now()-h.t0; g.save(); g.globalAlpha=1-t/.8; g.fillStyle='#f33'; g.translate(h.x,40+t*110); g.rotate(t*3); g.fillText('♥',0,0); g.restore() } // 잃은 하트가 깨져 떨어짐
+  g.fillStyle='#eee';
   g.fillStyle=streak>=LAYERS[0]?'#fc3':'#888'; g.fillText('COMBO x'+streak+'  ♪'+'■'.repeat(LAYERS.filter(n=>streak>=n).length)+'□'.repeat(LAYERS.filter(n=>streak<n).length),20,64); g.fillStyle='#eee';
   g.fillText(BOSSES[stage]?'BOSS '+bossMode.toUpperCase()+'  KILLS '+(kills||0)+'/'+bossTotal:'STAGE '+stage+'  KILLS '+(kills||0)+'/'+goal(),480,40);
   if(BOSSES[stage]&&running){ const B=BOSSES[stage], el=Math.max(0,(now()-bossT0)/beatLen()), c=Math.min(B.beats/8-1,el/8|0); // 보스 HP바 = 곡 남은 시간 (1:30 버티면 격파)

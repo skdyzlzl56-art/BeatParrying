@@ -1,6 +1,6 @@
 
 const $=id=>document.getElementById(id), cv=$('c'), g=cv.getContext('2d');
-let down=0, ac, running=false, over='', P, kills, enemies=[], gridT, ci, flash=0, msg='', log=[], P_dir=0, pressT=-9;
+let down=0, ac, running=false, over='', P, kills, enemies=[], gridT, ci, flash=0, msg='', fx=[], P_dir=0, pressT=-9;
 let pendG=null, groupEnd=0; const MAX_ACTIVE=5, CELL=45, NEAR=50; let sc=0, nx=0; // MAX_ACTIVE = 동시 적 수
 const beatLen=()=>60/(+$('bpm').value||120);
 const now=()=>ac.currentTime;
@@ -76,13 +76,19 @@ function bg(at,i){ // i = 8분음표 번호 (짝수 = 박 머리)
   if(L(4)&&m) note(mf(m),at,st===5?.14:.3,mv,mt);
   if(L(5)&&m) note(mf(m+12),at,.3,.04,'sine');
 }
-function holdTone(at,dur){ // 꾹 누르기 가이드: 현재 화음의 3음(+옥타브)에 맞춘 부드러운 패드. 살짝 어긋난 사인 2개(코러스) + 느린 떨림, 뗄 타이밍에 사라짐
-  const f=mf(chordNow()[1]+12);
-  const o=ac.createOscillator(), h=ac.createOscillator(), lf=ac.createOscillator(), lg=ac.createGain(), gn=ac.createGain();
-  o.type=h.type=lf.type="sine"; o.frequency.value=f; h.frequency.value=f*1.004; lf.frequency.value=5; lg.gain.value=.03; // 5Hz 떨림
-  lf.connect(lg).connect(gn.gain);
-  gn.gain.setValueAtTime(.001,at); gn.gain.linearRampToValueAtTime(.09,at+.06); gn.gain.setValueAtTime(.09,at+Math.max(.07,dur-.08)); gn.gain.exponentialRampToValueAtTime(.001,at+dur);
-  o.connect(gn); h.connect(gn); gn.connect(OUT()); for(const x of [o,h,lf]){ x.start(at); x.stop(at+dur+.02) }
+function holdTone(at,dur){ // 꾹 누르기 = 기 모으기: 누르는 동안 음이 한 옥타브 올라가고, 필터가 열리고, 떨림이 빨라지고, 바람소리가 커지다가 뗄 타이밍에 정점
+  const f=mf(chordNow()[0]), e=at+dur, pk=Math.max(at+.01,e-.03);
+  const o=ac.createOscillator(), h=ac.createOscillator(), lf=ac.createOscillator(), lg=ac.createGain(), gn=ac.createGain(), fl=ac.createBiquadFilter(), ns=ac.createBufferSource(), nf=ac.createBiquadFilter(), ng=ac.createGain();
+  o.type='sawtooth'; h.type='sine'; lf.type='sine'; fl.type='lowpass'; fl.Q.value=4;
+  o.frequency.setValueAtTime(f,at); o.frequency.exponentialRampToValueAtTime(f*2,e);        // 음이 점점 올라감
+  h.frequency.setValueAtTime(f*2.003,at); h.frequency.exponentialRampToValueAtTime(f*4,e); // 위 옥타브 사인
+  fl.frequency.setValueAtTime(250,at); fl.frequency.exponentialRampToValueAtTime(5000,e);   // 필터가 열림
+  lf.frequency.setValueAtTime(4,at); lf.frequency.linearRampToValueAtTime(16,e); lg.gain.value=.025; lf.connect(lg).connect(gn.gain); // 떨림이 빨라짐
+  gn.gain.setValueAtTime(.001,at); gn.gain.linearRampToValueAtTime(.03,at+ATK*5); gn.gain.linearRampToValueAtTime(.11,pk); gn.gain.exponentialRampToValueAtTime(.001,e+.12);
+  ns.buffer=noiseB(); ns.loop=true; nf.type='bandpass'; nf.Q.value=1.5; nf.frequency.setValueAtTime(300,at); nf.frequency.exponentialRampToValueAtTime(5000,e); // 바람 소리
+  ng.gain.setValueAtTime(.001,at); ng.gain.linearRampToValueAtTime(.06,pk); ng.gain.exponentialRampToValueAtTime(.001,e+.12);
+  o.connect(fl); h.connect(fl); fl.connect(gn).connect(OUT()); ns.connect(nf).connect(ng).connect(OUT());
+  for(const x of [o,h,lf,ns]){ x.start(at); x.stop(e+.14) }
 }
 function chordNow(){ // 지금 울리는 마디의 3화음 (MIDI). bgI = 다음 예약 8분음표라 1 뺌
   const i=Math.max(0,bgI-1), bar=(i>>3)%4;
@@ -145,7 +151,7 @@ function bossBg2(at,i){
 }
 function start(){
   ac=ac||new AudioContext(); ac.resume();
-  P=5; kills=0; enemies=[]; sc=0; nx=0; stage=1; over=''; log=[]; msg=''; $('log').textContent='';
+  P=5; kills=0; enemies=[]; sc=0; nx=0; stage=1; over=''; fx=[]; msg='';
   setBpm(); gridT=now()+beatLen()*2; ci=0; running=true; bgT=gridT; bgI=0; streak=0; groupEnd=0; pendG=null; // 2박 카운트인, 이후 normal 한 박 간격 격자에서만 스폰
 }
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
@@ -189,12 +195,12 @@ function step(){
 }
 const DMG=1; // 실패 시 내 HP -DMG, 성공 시 적 HP -DMG (적 HP 1 = 한 방)
 function resolve(e,a,txt,ok){
-  a.done=true; msg=txt; flash=1;
+  a.done=true; const ms=/-?d+ms$/.exec(txt)?.[0]||'', word=txt.replace(ms,'').trim();
+  fx.push({w:word,ms,x:e.px??PX,y:e.py??GY,t0:now(),col:ok?(word==='PERFECT'?'#fc3':'#7df'):'#f55',sub:ok&&e.hp>DMG?'HP '+(e.hp-DMG):''});
   if(!ok&&e.type.once) enemies=enemies.filter(o=>o!==e); // 4몹은 실패해도 한 번 공격하면 사라짐 (남아서 다음 그룹과 겹치지 않게)
   if(ok) streak++; else { const lv=Math.max(0,LAYERS.filter(n=>streak>=n).length-2); streak=lv?LAYERS[lv-1]:0 } // 실패: 레이어 2단계 하락
   if(ok){ parrySfx(Math.max(now(),a.rel||a.time),txt[0]==='P'); e.hp-=DMG; if(e.hp<=0){enemies=enemies.filter(o=>o!==e);kills++; if(kills>=goal()){ if(stage<24) setStage(stage+1); else enterBoss(25) }
-      e.type.pat.forEach((v,i)=>{ if(v===2&&i>e.slotDone&&e.type.atkSound) tick(e.type.hz,true,e.type.bell,e.cs+i*e.sl) }) } /* 일찍 죽여도 남은 공격 소리는 그대로 */ else msg+='  (남은 HP '+e.hp+')' } else { P-=DMG; missSfx() }
-  log.unshift(txt); $('log').textContent=log.slice(0,6).join('\n');
+      e.type.pat.forEach((v,i)=>{ if(v===2&&i>e.slotDone&&e.type.atkSound) tick(e.type.hz,true,e.type.bell,e.cs+i*e.sl) }) } /* 일찍 죽여도 남은 공격 소리는 그대로 */ } else { P-=DMG; missSfx() }
 }
 const dirOf=k=>(k==='a'||k==='arrowleft')?-1:(k==='d'||k==='arrowright')?1:0;
 addEventListener('keydown',e=>{
@@ -212,7 +218,7 @@ addEventListener('keydown',e=>{
   if(!pool.length){ const {e:en,a}=c.sort(byDt)[0]; resolve(en,a,'WRONG SIDE',false); return } // 맞는 방향이 없으면 가장 가까운 하나만 실패
   const seen=new Set();
   for(const {e:en,a} of pool){ if(seen.has(en)) continue; seen.add(en); // 한 번의 패링으로 같은 방향 적 전부 (적당 1회)
-    if(a.rel){ a.held=true; msg='HOLD!'; flash=1; holdTone(now(),Math.max(.05,a.rel-now())); continue } // 꾹 누르기: 누른 것만 인정, 판정은 뗄 때
+    if(a.rel){ a.held=true; fx.push({w:'HOLD!',ms:'',x:en.px??PX,y:en.py??GY,t0:now(),col:'#ff0',sub:''}); holdTone(now(),Math.max(.05,a.rel-now())); continue } // 꾹 누르기: 누른 것만 인정, 판정은 뗄 때
     const dt=t-a.time, ms=Math.round(dt*1000)+'ms';
     if(Math.abs(dt)<=win()/2) resolve(en,a,'PERFECT '+ms,true);
     else resolve(en,a,(dt<0?'EARLY ':'LATE ')+ms,true); }
@@ -243,7 +249,7 @@ function drawEnemy(e,t){
   const ty=e.type, pat=ty.pat, N=e.N, sI=e.sI, k=clamp(Math.floor(el/e.sl),0,N-1), s=e.side, ph=el/e.sl-k;
   const warn=!e.atks[0].done&&el>=(sI-(ty.w||1))*e.sl&&el<sI*e.sl; // 공격 한 박 전: 빛남
   const sp=ty.speed, sB=Math.floor(sI/sp), num=ty.once?Math.max(0,sB-Math.floor(k/sp)):pat.slice(k+1,sI+1).filter(v=>v).length, /* 4몹(연두): 눈금 한 칸 다가올 때마다 1씩 감소 */ /* 소리 날 때마다 1씩 감소 */ dist=NEAR+CELL*(.5+Math.min(6,Math.max(0,sB-Math.floor(k/sp)))), /* 눈금 한 칸 = 1박, 칸 가운데에 위치 */ hop=(pat[k]&&k<=sI)?14*Math.max(0,1-ph*5):0; // 슬롯이 아니라 '박' 기준으로 한 칸씩 (눈금과 일치)
-  const lane=e.lane, R=27*(ty.size||1), x=PX+s*dist, base=GY-lane*40, y=base-hop, gl=2; // 높이 일정 · gl = 3색 원 겹침 간격(고정)
+  const lane=e.lane, R=27*(ty.size||1), x=PX+s*dist, base=GY-lane*40, y=base-hop, gl=2; e.px=x; e.py=y; // 높이 일정 · gl = 3색 원 겹침 간격(고정)
   g.save();
   if(warn){g.shadowColor=ty.cols[0];g.shadowBlur=25}
   g.globalCompositeOperation='lighter';
@@ -273,6 +279,11 @@ function draw(){
   if(BOSSES[stage]&&running){ const B=BOSSES[stage], el=Math.max(0,(now()-bossT0)/beatLen()), c=Math.min(B.beats/8-1,el/8|0); // 보스 HP바 = 곡 남은 시간 (1:30 버티면 격파)
     g.fillStyle='#400'; g.fillRect(20,6,680,8); g.fillStyle='#f33'; g.fillRect(20,6,680*Math.max(0,1-el/B.beats),8);
     g.fillStyle='#eee'; g.font='11px monospace'; g.fillText('BOSS '+(stage-24)+' '+bossMode.toUpperCase()+'  '+B.sect(c),20,26); g.font='16px monospace' }
+  fx=fx.filter(f=>now()-f.t0<.9);
+  for(const f of fx){ const a=now()-f.t0, pop=a<.1?(1-a/.1)*8:0, y=f.y-40-a*40, sub=[f.ms,f.sub].filter(Boolean).join('  '); // 판정 이펙트: 위로 떠오르며 사라짐
+    g.save(); g.globalAlpha=1-a/.9; g.textAlign='center'; g.lineJoin='round'; g.strokeStyle='#000'; g.lineWidth=4; g.fillStyle=f.col;
+    g.font='bold '+(20+pop)+'px monospace'; g.strokeText(f.w,f.x,y); g.fillText(f.w,f.x,y);
+    g.font='bold 14px monospace'; g.strokeText(sub,f.x,y+16); g.fillText(sub,f.x,y+16); g.restore() }
   if(flash>0){g.fillStyle='rgba(255,255,255,'+flash+')';g.font='24px monospace';g.fillText(msg,260,80);flash-=.015}
   if(!running){g.fillStyle='#fff';g.font='28px monospace';g.fillText(over||'Space / Enter 로 시작',220,200)}
 }

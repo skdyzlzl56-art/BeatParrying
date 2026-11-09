@@ -195,7 +195,7 @@ function step(){
 }
 const DMG=1; // 실패 시 내 HP -DMG, 성공 시 적 HP -DMG (적 HP 1 = 한 방)
 function resolve(e,a,txt,ok){
-  a.done=true; const ms=/-?d+ms$/.exec(txt)?.[0]||'', word=txt.replace(ms,'').trim();
+  a.done=true; const ms=/-?\d+ms$/.exec(txt)?.[0]||'', word=txt.replace(ms,'').trim();
   fx.push({w:word,ms,x:e.px??PX,y:e.py??GY,t0:now(),col:ok?(word==='PERFECT'?'#fc3':'#7df'):'#f55',sub:ok&&e.hp>DMG?'HP '+(e.hp-DMG):''});
   if(!ok&&e.type.once) enemies=enemies.filter(o=>o!==e); // 4몹은 실패해도 한 번 공격하면 사라짐 (남아서 다음 그룹과 겹치지 않게)
   if(ok) streak++; else { const lv=Math.max(0,LAYERS.filter(n=>streak>=n).length-2); streak=lv?LAYERS[lv-1]:0 } // 실패: 레이어 2단계 하락

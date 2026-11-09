@@ -42,7 +42,7 @@ function noise(at,type,f,vol,dur){
   s.connect(fl).connect(v).connect(OUT()); s.start(at);
 }
 function bg(at,i){ // i = 8분음표 번호 (짝수 = 박 머리)
-  if(BOSSES[stage]) return stage===25?bossBg(at,i):bossBg2(at,i);
+  if(BOSSES[stage]) return stage===26?bossBg(at,i):bossBg2(at,i); // 26 = 보스2(128BPM) · 25·27 = 16분음표 전투곡
   // 스타일 st: 0 기본(1~3) · 1 댄스(4) · 2 하프타임(5) · 3 질주(6) · 4 스윙 재즈(13~15) · 5 칩튠(16~18)
   const bar=Math.floor(i/8)%4, s=i%8, S=SONGS[stage]||SONGS[1], st=S.st||0, beat=i%2===0, L=n=>streak>=LAYERS[n], root=S.root[bar], c=S.chord[bar], m=S.mel[bar*8+s];
   if(st===4&&!beat) at+=beatLen()*.17; // 스윙: 뒤 8분음표를 늦춰 셋잇단 느낌
@@ -92,7 +92,7 @@ function holdTone(at,dur){ // 꾹 누르기 = 기 모으기: 누르는 동안 �
 }
 function chordNow(){ // 지금 울리는 마디의 3화음 (MIDI). bgI = 다음 예약 8분음표라 1 뺌
   const i=Math.max(0,bgI-1), bar=(i>>3)%4;
-  if(BOSSES[stage]){ const b2=stage!==25, L=(b2?BOSS2_LVL:BOSS_LVL)[i>>4]??0; return (b2?BP2:BP)[L>=3?1:0].chord[bar] }
+  if(BOSSES[stage]){ const B=BOSSES[stage], L=B.lvl[i>>4]??0; return B.bp[L>=3?1:0].chord[bar] }
   return (SONGS[stage]||SONGS[1]).chord[bar];
 }
 function parrySfx(at,perfect){ // 패링 성공 "띵": 현재 화음음 + 콤보 따라 한 칸씩 상승(근음→3도→5도→옥타브 위…) + 마림바풍 둥근 음색. 퍼펙트는 옥타브 위 반짝임 추가
@@ -133,8 +133,9 @@ function bossBg(at,i){ // i = 8분음표 번호, 384 = 곡 끝
 }
 // 보스2: 160BPM 전투 BGM. 8분음표 안에 16분음표를 한 번 더 쪼개서(at+beatLen()/4) 하이햇·베이스·아르페지오를 빽빽하게. 480 = 곡 끝
 function bossBg2(at,i){
-  if(i>=480){ if(i===480){ drum(150,38,.6,.55,at); noise(at,'highpass',3000,.45,1.4); for(const n of [38,50,57,62,65,69]) note(mf(n),at,2,.06,'sawtooth') } return }
-  const bl=beatLen(), at2=at+bl/4, c=i>>4, ir=i%16, L=BOSS2_LVL[c], s=i%8, beat=i%2===0, bar=(i>>3)%4, P=BP2[L>=3?1:0], root=P.root[bar], ch=P.chord[bar], m=P.mel[bar*8+s], full=L>=4, drums=L!==3;
+  const B=BOSSES[stage], END=B.beats*2;
+  if(i>=END){ if(i===END){ drum(150,38,.6,.55,at); noise(at,'highpass',3000,.45,1.4); for(const n of B.end||[38,50,57,62,65,69]) note(mf(n),at,2,.06,'sawtooth') } return }
+  const bl=beatLen(), at2=at+bl/4, c=i>>4, ir=i%16, L=B.lvl[c], s=i%8, beat=i%2===0, bar=(i>>3)%4, P=B.bp[L>=3?1:0], root=P.root[bar], ch=P.chord[bar], m=P.mel[bar*8+s], full=L>=4, drums=L!==3;
   if(drums&&(L===0?s%4===0:(beat||s===7))) drum(full?135:115,42,.15,.32,at);                          // 킥: 인트로 1·3박 → 4분음표 + 못갖춘 8분(s=7) 당김음
   if(drums&&L>=1){ noise(at,'highpass',8000,beat?.09:.13,.03); noise(at2,'highpass',8000,.06,.03) }     // 하이햇 16분음표
   if(drums&&L>=1&&(s===2||s===6)) noise(at,'bandpass',1800,.34,.12);                                  // 스네어 (2·4박)
@@ -175,7 +176,7 @@ function trySpawn(t){
   if(!f.group&&t<groupEnd){ nx=b+1; return }                              // 그룹이 진행 중인 8박 동안은 다른 몹도 안 나옴
   pendG=null;
   if(!f.group&&enemies.length>=MAX_ACTIVE){nx+=2; return} // 꽉 찼으면 위상(짝/홀)을 유지한 채 2박 미룸
-  if(f.lock){ spawnForm(t,f); nx=b+8; groupEnd=t+beatLen()*8; return } // 8박 주기 세트 (4몹: 이번 공격(4~7박)과 겹쳐서 다음 예고(8~11박)가 이어짐)
+  if(f.lock){ const n=f.lock===true?8:f.lock; spawnForm(t,f); nx=b+n; groupEnd=t+beatLen()*n; return } // 8박 주기 세트 (4몹: 이번 공격(4~7박)과 겹쳐서 다음 예고(8~11박)가 이어짐)
   nx=b+2+(Math.random()<.5?(stage>=2?2:1):0); // 2박 or 3박 (2몹은 2박 or 4박: 11.. 리듬이 2박 주기라 홀수 박이면 쉼 자리가 채워짐)
   spawnForm(t,f);
 }
@@ -253,7 +254,10 @@ function drawEnemy(e,t){
   g.save();
   if(warn){g.shadowColor=ty.cols[0];g.shadowBlur=25}
   g.globalCompositeOperation='lighter';
-  ty.cols.forEach((col,i)=>{g.strokeStyle=col; g.fillStyle=warn?col+'8':col+'4'; g.lineWidth=warn?4:3; g.beginPath(); g.arc(x+(i-1)*gl,y,R*.75,0,7); g.fill(); g.stroke()});
+  const lh=ty.long&&e.atks[0], tail=lh?(t<lh.time?ty.long:clamp((lh.rel-t)/e.sl,0,ty.long)):0, xt=x+s*tail*CELL, rr=R*.75; // 롱홀드: 머리(x) 뒤로 4박 길이 꼬리. 누르는 동안 꼬리가 줄어듦
+  ty.cols.forEach((col,i)=>{g.strokeStyle=col; g.fillStyle=warn?col+'8':col+'4'; g.lineWidth=warn?4:3; g.beginPath();
+    if(lh) g.roundRect(Math.min(x,xt)-rr+(i-1)*gl,y-rr,Math.abs(xt-x)+2*rr,2*rr,rr); else g.arc(x+(i-1)*gl,y,rr,0,7); g.fill(); g.stroke()});
+  if(lh){ g.save(); g.strokeStyle=ty.cols[1]; g.lineWidth=1.5; g.beginPath(); for(let j=1;j<tail;j++){ g.moveTo(x+s*j*CELL,y-rr*.6); g.lineTo(x+s*j*CELL,y+rr*.6) } g.stroke(); g.restore() }
   g.restore();
   g.save(); g.textAlign='center'; g.textBaseline='middle'; g.font='bold 22px monospace'; g.fillStyle=num?'#fff':'#f55'; g.lineWidth=4; g.strokeStyle='#000'; g.lineJoin='round'; g.strokeText(num,x,y); g.fillText(num,x,y); g.restore(); // 공격까지 남은 박 (0 = 지금 패링)
   const ha=e.atks.find(a=>a.rel&&!a.done); if(ha){ const W=44, f=ha.held?clamp((ha.rel-t)/(ha.rel-ha.time),0,1):1; g.fillStyle='#000a'; g.fillRect(x-W/2,y+21,W,8); g.fillStyle=ha.held?(Math.abs(t-ha.rel)<=win()?'#4f4':'#ff0'):'#fa0'; g.fillRect(x-W/2,y+21,W*f,8); g.strokeStyle='#ff0'; g.lineWidth=1.5; g.strokeRect(x-W/2,y+21,W,8); if(ha.held){ g.save(); g.strokeStyle='#ff0'; g.lineWidth=5; g.beginPath(); g.moveTo(x,y); g.lineTo(PX,GY); g.stroke(); g.restore() } } // 꾹 누르기 몹: 몹 아래 게이지. 누르기 전엔 가득(주황) → 누르면 줄어듦(노랑), 0 = 뗄 타이밍, 뗄 수 있는 구간은 초록 + 누르는 중엔 빔

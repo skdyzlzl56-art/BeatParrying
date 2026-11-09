@@ -14,6 +14,7 @@ const MOBS={
  double: {name:'2몹',      hz:494, cols:['#08f','#4cf','#0ef']},
  off:    {name:'3몹',      hz:560, cols:['#8f0','#af4','#0f8']},
  echo:   {name:'5몹',     hz:480, cols:['#c8f','#dbf','#eaf']},
+ long:   {name:'7몹',     hz:380, cols:['#f4a','#f8c','#fbd']},
  hold:   {name:'6몹',     hz:400, cols:['#fd0','#fe6','#ffa']}};  // 꾹 눌렀다 떼는 몹 (아래 막대 = 홀드)
 // ---- 편성(FORMS): 기본 몹(mob)을 어떤 패턴(units의 pat)으로 몇 마리 내보낼지.
 //   group = 화면이 빈 뒤에만 시작 · lock = 8박 세트(끝날 때까지 다른 몹 안 나옴) · same = 방향 안 정한 마리들이 같은 쪽에서 나옴 · quiet = 예고음 생략(소리 겹침 방지) · once = 한 번 공격하고 퇴장
@@ -26,12 +27,13 @@ const FORMS={
  off3: {mob:'off', group:true, same:true, units:[11,13,15].map((a,k)=>({pat:offPat(a), speed:2, w:2, quiet:k>0}))}, // 같은 엇박 3마리: 5.5·6.5·7.5박에 공격
  call4:{mob:'basic', group:true, lock:true, units:ring(4,o=>({pat:ring(8,i=>i===o?1:i===o+4?2:0), speed:1, w:1, once:true}))}, // 기본 몹 4마리: 박마다 하나씩 예고 → 4박 뒤 같은 순서로 공격
  hold: {mob:'hold', lock:true, units:[{pat:pt('1111124.'), speed:1, w:1, once:true}]}, // 꾹 누르기 기본형(1박): 5박째에 누르고 6박째에 뗌. 2 = 누를 타이밍, 4 = 뗄 타이밍
+ long: {mob:'long', lock:12, units:[{pat:pt('1111 2... 4...'), speed:1, w:1, once:true, long:4}]}, // 롱홀드: 5박째에 누르고 4박 내내 유지, 9박째에 뗌 (도형도 4박 길이). lock 12 = 세트가 12박
  echo: {mob:'echo', group:true, lock:true, build:()=>{ const gs=Math.random()<.5?-1:1; // 3마리가 모두 같은 쪽(gs). 마리마다 땅(1연타) 또는 따당(2연타, 좌→우 또는 우→좌). i번째 마리: 예고 박 i, 공격 박 i+4
    return ring(3,i=>{ const n=1+Math.floor(Math.random()*2), p=Array(16).fill(0); for(let j=0;j<n;j++){ p[2*i+j]=1; p[2*i+8+j]=2 }
      return n===2?{pat:p,speed:2,w:2,once:true,side:gs,dirs:[gs,-gs],name:gs<0?'따당 ←→':'따당 →←'}:{pat:p,speed:2,w:2,once:true,side:gs} }) }}};
 const GOALS=[0,20,10,20,25,20,25]; // 스테이지별 목표 킬
 const F=FORMS, STAGE_POOLS=[0,[F.basic],[F.double],[F.basic,F.double],[F.call4],[F.basic,F.call4],[F.basic,F.double,F.call4]]; // 1~6 (7~18은 6개 반복)
-const HOLD_STAGE=[F.hold]; // 24: 꾹 누르기 스테이지 (8박마다 한 마리, 방향 랜덤. 목표 10킬)
+const HOLD_STAGE=[F.hold,F.long]; // 24: 꾹 누르기 스테이지 (8박마다 한 마리, 방향 랜덤. 목표 10킬)
 const EXTRA=[[F.off],[F.basic,F.double,F.off],[F.echo],[F.off,F.off3],[F.off3]]; // 19~23: 엇박 · 복습(1·2·엇박) · 에코 · 엇박+엇박3연타 · 엇박3연타
 // 스테이지별 곡: root = 마디별 근음(Hz), chord = 마디별 MIDI 3화음, mel = 4마디 x 8분음표 8칸 (0 = 쉼)
 const SONGS=[0,
@@ -58,7 +60,7 @@ const SONGS=[0,
  {root:[73.42,65.41,58.27,65.41],chord:[[62,65,69],[60,64,67],[58,62,65],[60,64,67]], st:1, mel:[74,0,77,81,0,77,0,74, 72,0,76,79,0,76,0,72, 70,0,74,77,0,74,0,70, 72,0,76,79,0,84,0,79]}, // 21: 에코 Dm C Bb C
  {root:[110,87.31,73.42,82.41], chord:[[69,72,76],[65,69,72],[62,65,69],[64,68,71]], st:3, mel:[81,0,0,0,81,0,81,81, 77,0,0,0,77,0,77,77, 74,0,0,0,74,0,74,74, 76,0,0,0,80,0,83,86]}, // 22: 가속 Am F Dm E
  {root:[61.74,110,98,92.5],     chord:[[59,62,66],[69,73,76],[67,71,74],[66,70,73]], st:2, mel:[78,0,81,0,78,0,74,0, 76,0,81,0,76,0,73,0, 74,0,79,0,74,0,71,0, 73,0,78,0,81,85,0,88]}]; // 23: 엇박3연타 Bm A G F#
-const BPMS=[0,120,120,120,120,120,120, 140,150,130,160,150,170, 110,125,140, 150,165,180, 120,100,120,120,130, 120, 128, 160]; // 1~6 기본 / 7~12 빠른 변주 / 13~15 스윙 / 16~18 칩튠 / 19~23 박자 몹 
+const BPMS=[0,120,120,120,120,120,120, 140,150,130,160,150,170, 110,125,140, 150,165,180, 120,100,120,120,130, 120, 180, 128, 160]; // 1~6 기본 / 7~12 빠른 변주 / 13~15 스윙 / 16~18 칩튠 / 19~23 박자 몹 
 // ---- 25: 보스 스테이지. 128BPM x 192박 = 정확히 90초. 사이클 하나 = 8박(3.75초) x 24. 몹은 랜덤이 아니라 곡 구성에 맞춘 고정 대본 ----
 // 토큰 = 종류 + 방향(L/R, 생략=랜덤) + 사이클 안 시작 박(생략=0). c 1몹 · d 2몹 · o 엇박 · s 엇박3연타 · g 4몹 그룹 · e 에코 · h 꾹 누르기(1박)
 // 공격은 시작 +6박 근처 (s는 5.5·6.5·7.5). 반대 방향 공격끼리 1박 이상 떨어지게 짰음.
@@ -80,5 +82,13 @@ const BOSS2_LVL=[0,0, 1,1,1,1, 2,2,2,2, 4,4,4,4, 3,3, 1,1,1,1, 4,4,4,4, 5,5,5,5,
 const BP2=[{root:[73.42,58.27,65.41,55], chord:[[62,65,69],[58,62,65],[60,64,67],[57,61,64]], mel:[74,0,77,0,81,0,77,74, 70,0,74,0,77,0,74,70, 72,0,76,0,79,0,76,72, 73,0,76,0,81,0,76,73]},
            {root:[58.27,87.31,65.41,55], chord:[[58,62,65],[65,69,72],[60,64,67],[57,61,64]], mel:[77,77,0,81,0,82,0,81, 81,81,0,84,0,81,0,77, 79,79,0,84,0,79,0,76, 81,0,80,0,81,0,85,0]}];
 // 곡마다: script(몹 대본) · lvl(사이클별 편곡) · beats(곡 길이, 박) · sect(HP바 위 구간 이름)
-const BOSSES={25:{script:BOSS_SCRIPT, beats:192, sect:c=>c<2?'INTRO':c<6?'VERSE':c<10?'BUILD':c<14?'DROP':c<16?'BREAK':c<20?'BUILD 2':'FINALE'},
-              26:{script:BOSS2_SCRIPT, beats:240, sect:c=>c<2?'INTRO':c<6?'VERSE':c<10?'PRE':c<14?'CHORUS':c<16?'BREAK':c<20?'VERSE 2':c<24?'CHORUS 2':'FINAL'}};
+// ---- 25: 보스1 (신규). basic(1몹)만 나오는 180BPM 질주곡 x 240박 = 80초. 공격 박마다 L/R 번갈아 (같은 박에 반대 방향 없음). 마디 구성은 보스2(27)와 같음 ----
+const BOSS3_SCRIPT={normal:['cL2','cR2','cL cR2','cL1 cR3','cL cR2','cL1 cR3','cL cR2 cL4','cR cL2 cR4','cL cR2 cL4 cR6','cL cR1 cL2 cR3 cL4 cR5','cL cR2 cL4 cR6','cL cR2 cL4 cR6','cL cR2 cL4 cR6','cL cR2 cL4 cR6','cL2','cR2','cL cR2','cL1 cR3','cL cR2','cL1 cR3','cL cR2 cL4 cR6','cL cR2 cL4 cR6','cL cR2 cL4 cR6','cL cR1 cL2 cR3 cL4 cR5','cL cR2 cL4 cR6','cL cR2 cL4 cR6','cL cR2 cL4 cR6','cL cR2 cL4 cR6','cL cR2 cL4 cR6','cL cR1'],
+ hard:['cL2 cR4','cL2 cR4 cL6','cR cL2 cR4','cL1 cR3 cL5','cR cL2 cR4','cL1 cR3 cL5','cR cL2 cR4 cL5','cR cL2 cR4 cL5','cR cL1 cR2 cL4 cR5 cL6','cR cL1 cR2 cL3 cR4 cL5 cR6 cL7','cR cL1 cR2 cL3 cR4 cL5 cR6 cL7','cR cL2 cR4 cL6','cR cL1 cR2 cL3 cR4 cL5 cR6 cL7','cR cL2 cR3 cL4 cR6 cL7','cR2 cL4','cR2 cL4 cR6','cL cR2 cL4','cR1 cL3 cR5','cL cR2 cL4','cR cL1 cR2 cL4 cR6','cL cR1 cL2 cR3 cL4 cR5 cL6 cR7','cL cR2 cL4 cR6','cL cR1 cL2 cR3 cL4 cR5 cL6 cR7','cL cR1 cL2 cR3 cL4 cR5 cL6 cR7','cL cR1 cL2 cR3 cL4 cR5 cL6 cR7','cL cR1 cL2 cR3 cL4 cR5 cL6 cR7','cL cR1 cL2 cR4 cL5 cR6','cL cR1 cL2 cR3 cL4 cR5 cL6 cR7','cL cR1 cL2 cR3 cL4 cR5 cL6 cR7','cL cR1 cL2 cR3']};
+// 진행 A(벌스·프리) Am F C G / 진행 B(후렴·브레이크·피날레) F G Am E
+const BP3=[{root:[110,87.31,130.81,98], chord:[[69,72,76],[65,69,72],[60,64,67],[67,71,74]], mel:[81,0,84,0,81,76,72,0, 81,0,77,0,72,77,81,0, 79,0,84,0,79,76,72,0, 79,0,83,0,79,74,71,0]},
+           {root:[87.31,98,110,82.41], chord:[[65,69,72],[67,71,74],[69,72,76],[64,68,71]], mel:[77,0,81,0,84,81,77,0, 79,0,83,0,86,83,79,0, 81,0,84,0,88,84,81,0, 80,0,83,0,88,83,80,0]}];
+const SECT2=c=>c<2?'INTRO':c<6?'VERSE':c<10?'PRE':c<14?'CHORUS':c<16?'BREAK':c<20?'VERSE 2':c<24?'CHORUS 2':'FINAL';
+const BOSSES={25:{script:BOSS3_SCRIPT, beats:240, lvl:BOSS2_LVL, bp:BP3, end:[45,57,64,69,72,76], sect:SECT2},
+              26:{script:BOSS_SCRIPT, beats:192, lvl:BOSS_LVL, bp:BP, sect:c=>c<2?'INTRO':c<6?'VERSE':c<10?'BUILD':c<14?'DROP':c<16?'BREAK':c<20?'BUILD 2':'FINALE'},
+              27:{script:BOSS2_SCRIPT, beats:240, lvl:BOSS2_LVL, bp:BP2, sect:c=>c<2?'INTRO':c<6?'VERSE':c<10?'PRE':c<14?'CHORUS':c<16?'BREAK':c<20?'VERSE 2':c<24?'CHORUS 2':'FINAL'}};

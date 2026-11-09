@@ -41,6 +41,12 @@
     + '<div id="tlog"></div><div class="btns"><button type="button" id="open-tune">튜닝</button><button type="button" id="rst">기본값</button></div>';
   menu.appendChild(panel);
   btn.onclick = () => { list.classList.remove('open'); panel.classList.toggle('open'); };
+  // 설정 패널이 열려 있는 동안 게임 일시정지 (오디오 시계를 멈추면 박자·몹·화면이 모두 같이 멈춤). 패널이 어떤 경로로 닫혀도 재개
+  new MutationObserver(() => {
+    const on = panel.classList.contains('open') && running && !!ac;
+    if (on === !!window.paused) return;
+    window.paused = on; on ? ac.suspend() : ac && ac.resume();
+  }).observe(panel, { attributes: true, attributeFilter: ['class'] });
   $('mbtn').addEventListener('click', () => panel.classList.remove('open'));
 
   // ---- 튜닝 화면 ----

@@ -8,7 +8,8 @@ const beatLen=()=>60/(+$('bpm').value||120);
 const now=()=>ac.currentTime;
 const win=()=>(+$('win').value||120)/1000;
 let stage=1;
-function setStage(n){ stage=n; enemies=[]; busyUntil=0; kills=0; nx=sc+3; msg='STAGE '+n; flash=3; setBpm() }
+let lockT=0; // 이 시각(오디오 시계)까지 press 무시
+function setStage(n){ lockT=now()+1; stage=n; enemies=[]; busyUntil=0; kills=0; nx=sc+3; msg='STAGE '+n; flash=3; setBpm() }
 function goStage(n,btn,mode){ btn.blur(); if(!running) start(); if(BOSSES[n]) enterBoss(n,mode); else setStage(n) } // 디버그
 const POOL=()=>stage===24?HOLD_STAGE:stage>18?EXTRA[stage-19]:STAGE_POOLS[(stage-1)%6+1];
 const goal=()=>stage>24?1/0:stage===24?10:stage>18?20:GOALS[(stage-1)%6+1];
@@ -130,7 +131,7 @@ function note(f,at,dur,vol,type){ if(type==='lead') return lead(f,at,dur,vol); i
 const mf=m=>440*2**((m-69)/12); // MIDI → Hz
 const setBpm=()=>{ $('bpm').value=BPMS[stage] };
 let bossT0=0, bossTotal=0, bossQ=[], bossMode='normal';
-function enterBoss(n=25,mode='normal'){
+function enterBoss(n=25,mode='normal'){ lockT=now()+1;
   stage=n; bossMode=mode; setBpm(); enemies=[]; busyUntil=0; kills=0; streak=0; sc=0; nx=0; pendG=null; groupEnd=0; over=''; msg='BOSS STAGE'; flash=3;
   gridT=now()+beatLen()*2; ci=0; bgT=gridT; bgI=0; bossT0=gridT; bossQ=[]; bossTotal=0; // 2박 카운트인 후 0박 = 곡 시작
   BOSSES[n].script[mode].forEach((row,c)=>row.split(' ').forEach(tok=>{ const [,ty,sd,off,len]=/^([a-z])([LR]?)(\d*)(?::(\d+))?$/.exec(tok);
@@ -236,6 +237,7 @@ function resolve(e,a,txt,ok){
 }
 const dirOf=k=>(k==='a'||k==='arrowleft')?-1:(k==='d'||k==='arrowright')?1:0;
 function press(dir){ // 키보드·터치 공통: dir -1 = 왼쪽 · 1 = 오른쪽
+  if(window.paused||now()<lockT) return; // 일시정지 중 · 스테이지 전환 직후 1초는 입력 무시 (이전 스테이지에서 연타하던 입력이 허공 패링으로 콤보를 깨지 않게)
   P_dir=dir; pressT=now(); kd[dir]=1; down=dir;
   const t=now()-(+$('off').value||0)/1000;
   const c=enemies.flatMap(e=>e.atks.filter(a=>!a.done&&!a.held&&Math.abs(t-a.time)<=win()).map(a=>({e,a})));

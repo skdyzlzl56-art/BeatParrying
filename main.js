@@ -227,7 +227,7 @@ function whiff(){ dropLv(1); fx.push({w:'WHIFF',ms:'',x:PX,y:GY,t0:now(),col:'#9
 const DMG=1; // 실패 시 내 HP -DMG, 성공 시 적 HP -DMG (적 HP 1 = 한 방)
 function resolve(e,a,txt,ok){
   a.done=true; const ms=/-?\d+ms$/.exec(txt)?.[0]||'', word=txt.replace(ms,'').trim();
-  fx.push({w:word,ms,x:e.px??PX,y:e.py??GY,t0:now(),col:ok?(word==='PERFECT'?'#fc3':'#7df'):'#f55',sub:ok&&e.hp>DMG?'HP '+(e.hp-DMG):''});
+  fx.push({w:word,ms,x:e.px??PX,y:e.py??GY,t0:now(),col:ok?(word==='PERFECT'?'#fc3':word==='EARLY'?'#4fe3ff':'#c58bff'):'#f55',sub:ok&&e.hp>DMG?'HP '+(e.hp-DMG):''});
   if(!ok&&e.type.once) enemies=enemies.filter(o=>o!==e); // 4몹은 실패해도 한 번 공격하면 사라짐 (남아서 다음 그룹과 겹치지 않게)
   if(ok&&word==='PERFECT') streak++; else { dropLv(ok?1:4) } // 퍼펙트만 콤보 +1 · EARLY/LATE는 레이어 1칸 하락 · 실패는 4칸 하락
   if(ok){ parrySfx(Math.max(now(),a.rel||a.time),txt[0]==='P'); e.hp-=DMG; if(e.hp<=0){enemies=enemies.filter(o=>o!==e);kills++; flung.push({x:e.px??PX,y:e.py??GY,s:e.side,cols:e.type.cols,R:27*(e.type.size||1)*.75,t0:now()}); if(kills>=goal()){ if(stage<24) setStage(stage+1); else enterBoss(25) }

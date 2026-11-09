@@ -347,7 +347,9 @@ function scene(hurtAge){
   for(let i=0;i<7;i++) for(const s of [-1,1]) g.fillText(i,PX+s*(NEAR+(i+.5)*CELL),345);
   g.textAlign='left';
   if(running){ const ord=enemies.map(e=>{ const a=e.atks.find(x=>!x.done); return {e,t:a?(a.held?a.rel:a.time):1e9} }).sort((p,q)=>p.t-q.t||p.e.side-q.e.side); // 다음 공격 시각이 빠른 순 (같으면 왼쪽 먼저)
-    STEP=ord.length>7?240/(ord.length-1):40; ord.forEach((o,i)=>o.e.lt=i) }
+    let lane=0, i=0; // 같은 시각에 공격하는 몹은 한 묶음: 좌우는 같은 높이를 공유하고, 같은 쪽에 여럿이면 위로 쌓음. 묶음끼리는 줄이 겹치지 않음
+    while(i<ord.length){ let j=i; while(j<ord.length&&Math.abs(ord[j].t-ord[i].t)<.001) j++; const cnt={'-1':0,'1':0}; for(let k=i;k<j;k++) ord[k].e.lt=lane+cnt[ord[k].e.side]++; lane+=Math.max(cnt[-1],cnt[1]); i=j }
+    STEP=lane>7?240/(lane-1):40 }
   if(running) [...enemies].sort((a,b)=>(b.ly||0)-(a.ly||0)).forEach(e=>drawEnemy(e,now()-(+$('voff').value||0)/1000));
   const pc=lvl>=6?'hsl('+(tn*160%360)+',90%,70%)':'#9ad0ff'; g.strokeStyle=pc; g.fillStyle=pc+(lvl>=6?'':'33'); g.lineWidth=3; if(lvl>=6) g.fillStyle='rgba(255,255,255,.12)';
   drawHero(tn,pc,lvl);

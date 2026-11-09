@@ -181,8 +181,9 @@ function bossBg2(at,i){
 }
 function start(){
   ac=ac||new AudioContext(); ac.resume();
-  P=5; kills=0; enemies=[]; busyUntil=0; sc=0; nx=0; stage=1; over=''; fx=[]; flung=[]; lost=[]; kd[-1]=kd[1]=0; auroraLvl=lastLvl=0; hurtT=-9; msg='';
-  setBpm(); gridT=now()+beatLen()*2; ci=0; running=true; bgT=gridT; bgI=0; streak=0; groupEnd=0; pendG=null; // 2박 카운트인, 이후 normal 한 박 간격 격자에서만 스폰
+  const resume=over&&over.startsWith('BOSS CLEAR')?1:stage; // 다시 시작하면 하던 스테이지(보스면 그 보스·난이도)에서 이어함. 보스를 깼을 땐 처음부터
+  P=5; kills=0; enemies=[]; busyUntil=0; sc=0; nx=0; stage=resume; over=''; fx=[]; flung=[]; lost=[]; kd[-1]=kd[1]=0; auroraLvl=lastLvl=0; hurtT=-9; msg='';
+  setBpm(); gridT=now()+beatLen()*2; ci=0; running=true; bgT=gridT; bgI=0; streak=0; groupEnd=0; pendG=null; if(BOSSES[stage]) enterBoss(stage,bossMode); // 2박 카운트인, 이후 normal 한 박 간격 격자에서만 스폰
 }
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 function newCycle(e,cs){ e.cs=cs; e.sl=beatLen()/e.type.speed; e.slotDone=-1; e.N=e.type.pat.length; e.sI=e.type.pat.indexOf(2); let ai=0; e.atks=e.type.pat.flatMap((v,i)=>{ if(v!==2) return []; const n2=e.type.pat.indexOf(2,i+1), j=e.type.pat.indexOf(4,i+1); // 2 뒤에 4가 있으면 꾹 누르기: 2 = 누를 타이밍, 4 = 뗄 타이밍

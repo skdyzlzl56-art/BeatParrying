@@ -199,7 +199,7 @@ function resolve(e,a,txt,ok){
   a.done=true; const ms=/-?\d+ms$/.exec(txt)?.[0]||'', word=txt.replace(ms,'').trim();
   fx.push({w:word,ms,x:e.px??PX,y:e.py??GY,t0:now(),col:ok?(word==='PERFECT'?'#fc3':'#7df'):'#f55',sub:ok&&e.hp>DMG?'HP '+(e.hp-DMG):''});
   if(!ok&&e.type.once) enemies=enemies.filter(o=>o!==e); // 4몹은 실패해도 한 번 공격하면 사라짐 (남아서 다음 그룹과 겹치지 않게)
-  if(ok) streak++; else { const lv=Math.max(0,LAYERS.filter(n=>streak>=n).length-2); streak=lv?LAYERS[lv-1]:0 } // 실패: 레이어 2단계 하락
+  if(ok&&word==='PERFECT') streak++; else { const lv=Math.max(0,LAYERS.filter(n=>streak>=n).length-(ok?1:4)); streak=lv?LAYERS[lv-1]:0 } // 퍼펙트만 콤보 +1 · EARLY/LATE는 레이어 1칸 하락 · 실패는 4칸 하락
   if(ok){ parrySfx(Math.max(now(),a.rel||a.time),txt[0]==='P'); e.hp-=DMG; if(e.hp<=0){enemies=enemies.filter(o=>o!==e);kills++; if(kills>=goal()){ if(stage<24) setStage(stage+1); else enterBoss(25) }
       e.type.pat.forEach((v,i)=>{ if(v===2&&i>e.slotDone&&e.type.atkSound) tick(e.type.hz,true,e.type.bell,e.cs+i*e.sl) }) } /* 일찍 죽여도 남은 공격 소리는 그대로 */ } else { P-=DMG; hurtT=now(); lost.push({x:20+9.6*(3+Math.max(P,0)),t0:hurtT}); missSfx() }
 }

@@ -267,11 +267,6 @@ addEventListener('keydown',e=>{
   e.preventDefault(); press(dir);
 });
 addEventListener('keyup',e=>{ const dir=dirOf(e.key.toLowerCase()); if(dir&&running) release(dir) });
-// 터치·마우스: 화면 왼쪽 절반 = 왼쪽 패링, 오른쪽 절반 = 오른쪽 패링 (멀티터치 가능). 멈춰 있을 땐 탭하면 시작
-const ptr=new Map();
-addEventListener('pointerdown',e=>{ if(e.target.closest('#menu')) return; e.preventDefault(); if(!running){ start(); return } const dir=e.clientX<innerWidth/2?-1:1; ptr.set(e.pointerId,dir); press(dir) });
-const pUp=e=>{ const dir=ptr.get(e.pointerId); if(dir){ ptr.delete(e.pointerId); if(running) release(dir) } };
-addEventListener('pointerup',pUp); addEventListener('pointercancel',pUp);
 
 // ---- 그리기: 도형. 적 = 글리치 파편(shard), 주인공 = 삼각형 ----
 function poly(pts,x,y,r,rot,sx,sy){

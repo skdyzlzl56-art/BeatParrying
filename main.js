@@ -1,3 +1,4 @@
+document.fonts.load('16px Galmuri11'); // 캔버스 글자도 Galmuri (로드 전엔 monospace 로 폴백)
 
 const $=id=>document.getElementById(id), cv=$('c'), g=cv.getContext('2d');
 let lastLvl=0, auroraLvl=0, starT=-9;
@@ -289,9 +290,9 @@ function drawEnemy(e,t){
     if(lh) g.roundRect(Math.min(x,xt)-rr+(i-1)*gl,y-rr,Math.abs(xt-x)+2*rr,2*rr,rr); else g.arc(x+(i-1)*gl,y,rr,0,7); g.fill(); g.stroke()});
   if(lh){ g.save(); g.strokeStyle=ty.cols[1]; g.lineWidth=1.5; g.beginPath(); for(let j=1;j<tail;j++){ g.moveTo(x+s*j*CELL,y-rr*.6); g.lineTo(x+s*j*CELL,y+rr*.6) } g.stroke(); g.restore() }
   g.restore();
-  g.save(); g.textAlign='center'; g.textBaseline='middle'; g.font='bold 22px monospace'; g.fillStyle=num?'#fff':'#f55'; g.lineWidth=4; g.strokeStyle='#000'; g.lineJoin='round'; g.strokeText(num,x,y); g.fillText(num,x,y); g.restore(); // 공격까지 남은 박 (0 = 지금 패링)
+  g.save(); g.textAlign='center'; g.textBaseline='middle'; g.font='bold 22px Galmuri11,monospace'; g.fillStyle=num?'#fff':'#f55'; g.lineWidth=4; g.strokeStyle='#000'; g.lineJoin='round'; g.strokeText(num,x,y); g.fillText(num,x,y); g.restore(); // 공격까지 남은 박 (0 = 지금 패링)
   const ha=e.atks.find(a=>a.rel&&!a.done); if(ha){ const W=44, f=ha.held?clamp((ha.rel-t)/(ha.rel-ha.time),0,1):1; g.fillStyle='#000a'; g.fillRect(x-W/2,y+21,W,8); g.fillStyle=ha.held?(Math.abs(t-ha.rel)<=win()?'#4f4':'#ff0'):'#fa0'; g.fillRect(x-W/2,y+21,W*f,8); g.strokeStyle='#ff0'; g.lineWidth=1.5; g.strokeRect(x-W/2,y+21,W,8); if(ha.held){ g.save(); g.strokeStyle='#ff0'; g.lineWidth=5; g.beginPath(); g.moveTo(x,y); g.lineTo(PX,GY); g.stroke(); g.restore() } } // 꾹 누르기 몹: 몹 아래 게이지. 누르기 전엔 가득(주황) → 누르면 줄어듦(노랑), 0 = 뗄 타이밍, 뗄 수 있는 구간은 초록 + 누르는 중엔 빔
-  g.fillStyle=ty.cols[1];g.font='11px monospace';g.textAlign='center';g.fillText(ty.name+(e.hp>1?' HP'+e.hp:''),x,base-26);g.textAlign='left';
+  g.fillStyle=ty.cols[1];g.font='11px Galmuri11,monospace';g.textAlign='center';g.fillText(ty.name+(e.hp>1?' HP'+e.hp:''),x,base-26);g.textAlign='left';
 }
 // ---- 주인공: 사람 대신 모션그래픽 형상. 회전하는 마름모 코어 + 맴도는 파편 + 앞쪽 반사판. 패링 = 반사판이 바깥으로 튕겨 나가며(0.12초) 속도선·불꽃이 날아감, 코어는 반대로 반동. 꾹 누르기 = 반사판을 앞에 고정하고 에너지가 모여듦 ----
 function drawHero(tn,pc,lvl){
@@ -336,13 +337,13 @@ function scene(hurtAge){
   g.strokeStyle='#999'; g.lineWidth=2; g.beginPath(); // 줄자: 칸 하나 = 1박, 0칸 = 공격 위치
   for(const s of [-1,1]){ g.moveTo(PX+s*NEAR,300); g.lineTo(PX+s*(NEAR+7*CELL),300);
     for(let i=0;i<=7;i++){const x=PX+s*(NEAR+i*CELL); g.moveTo(x,300); g.lineTo(x,i%2?316:324)} }
-  g.stroke(); g.lineWidth=3; g.fillStyle='#888'; g.font='11px monospace'; g.textAlign='center';
+  g.stroke(); g.lineWidth=3; g.fillStyle='#888'; g.font='11px Galmuri11,monospace'; g.textAlign='center';
   for(let i=0;i<7;i++) for(const s of [-1,1]) g.fillText(i,PX+s*(NEAR+(i+.5)*CELL),345);
   g.textAlign='left';
   if(running) [...enemies].sort((a,b)=>b.lane-a.lane).forEach(e=>drawEnemy(e,now()));
   const pc=lvl>=6?'hsl('+(tn*160%360)+',90%,70%)':'#9ad0ff'; g.strokeStyle=pc; g.fillStyle=pc+(lvl>=6?'':'33'); g.lineWidth=3; if(lvl>=6) g.fillStyle='rgba(255,255,255,.12)';
   drawHero(tn,pc,lvl);
-  g.fillStyle='#eee';g.font='16px monospace';
+  g.fillStyle='#eee';g.font='16px Galmuri11,monospace';
   g.fillStyle=hurtAge<.3?'#f55':'#eee'; g.fillText('HP '+'♥'.repeat(Math.max(P||0,0)),20,40);
   lost=lost.filter(h=>now()-h.t0<.8); for(const h of lost){ const t=now()-h.t0; g.save(); g.globalAlpha=1-t/.8; g.fillStyle='#f33'; g.translate(h.x,40+t*110); g.rotate(t*3); g.fillText('♥',0,0); g.restore() } // 잃은 하트가 깨져 떨어짐
   g.fillStyle='#eee';
@@ -350,15 +351,15 @@ function scene(hurtAge){
   g.fillText(BOSSES[stage]?'BOSS '+bossMode.toUpperCase()+'  KILLS '+(kills||0)+'/'+bossTotal:'STAGE '+stage+'  KILLS '+(kills||0)+'/'+goal(),480,40);
   if(BOSSES[stage]&&running){ const B=BOSSES[stage], el=Math.max(0,(now()-bossT0)/beatLen()), c=Math.min(B.beats/8-1,el/8|0); // 보스 HP바 = 곡 남은 시간 (1:30 버티면 격파)
     g.fillStyle='#400'; g.fillRect(20,6,680,8); g.fillStyle='#f33'; g.fillRect(20,6,680*Math.max(0,1-el/B.beats),8);
-    g.fillStyle='#eee'; g.font='11px monospace'; g.fillText('BOSS '+(stage-24)+' '+bossMode.toUpperCase()+'  '+B.sect(c),20,26); g.font='16px monospace' }
+    g.fillStyle='#eee'; g.font='11px Galmuri11,monospace'; g.fillText('BOSS '+(stage-24)+' '+bossMode.toUpperCase()+'  '+B.sect(c),20,26); g.font='16px Galmuri11,monospace' }
   flung=flung.filter(f=>now()-f.t0<.5); for(const f of flung){ const t=now()-f.t0, x=f.x+f.s*(t*900+t*t*900), y=f.y-t*140+t*t*500; g.save(); g.globalCompositeOperation='lighter'; g.globalAlpha=1-t/.5; g.translate(x,y); g.rotate(f.s*t*14); // 패링 성공: 몹이 바깥으로 튕겨 날아감
     f.cols.forEach((c,i)=>{ g.strokeStyle=c; g.lineWidth=3; g.beginPath(); g.arc((i-1)*2,0,f.R*(1-t),0,7); g.stroke() }); g.strokeStyle='#fff'; g.lineWidth=2; g.beginPath(); g.moveTo(-f.s*60,0); g.lineTo(-f.s*14,0); g.stroke(); g.restore() }
   fx=fx.filter(f=>now()-f.t0<.9);
   for(const f of fx){ const a=now()-f.t0, pop=a<.1?(1-a/.1)*8:0, y=f.y-40-a*40, sub=[f.ms,f.sub].filter(Boolean).join('  '); // 판정 이펙트: 위로 떠오르며 사라짐
     g.save(); g.globalAlpha=1-a/.9; g.textAlign='center'; g.lineJoin='round'; g.strokeStyle='#000'; g.lineWidth=4; g.fillStyle=f.col;
-    g.font='bold '+(20+pop)+'px monospace'; g.strokeText(f.w,f.x,y); g.fillText(f.w,f.x,y);
-    g.font='bold 14px monospace'; g.strokeText(sub,f.x,y+16); g.fillText(sub,f.x,y+16); g.restore() }
-  if(flash>0){g.fillStyle='rgba(255,255,255,'+flash+')';g.font='24px monospace';g.fillText(msg,260,80);flash-=.015}
-  if(!running){g.fillStyle='#fff';g.font='28px monospace';g.fillText(over||'Space / Enter 로 시작',220,200)}
+    g.font='bold '+(20+pop)+'px Galmuri11,monospace'; g.strokeText(f.w,f.x,y); g.fillText(f.w,f.x,y);
+    g.font='bold 14px Galmuri11,monospace'; g.strokeText(sub,f.x,y+16); g.fillText(sub,f.x,y+16); g.restore() }
+  if(flash>0){g.fillStyle='rgba(255,255,255,'+flash+')';g.font='24px Galmuri11,monospace';g.fillText(msg,260,80);flash-=.015}
+  if(!running){g.fillStyle='#fff';g.font='28px Galmuri11,monospace';g.fillText(over||'Space / Enter 로 시작',220,200)}
 }
 (function loop(){ if(ac) step(); draw(); requestAnimationFrame(loop) })();

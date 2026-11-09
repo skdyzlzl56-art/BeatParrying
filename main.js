@@ -350,10 +350,10 @@ function scene(hurtAge){
   if(running) [...enemies].sort((a,b)=>b.lane-a.lane).forEach(e=>drawEnemy(e,now()-(+$('voff').value||0)/1000));
   const pc=lvl>=6?'hsl('+(tn*160%360)+',90%,70%)':'#9ad0ff'; g.strokeStyle=pc; g.fillStyle=pc+(lvl>=6?'':'33'); g.lineWidth=3; if(lvl>=6) g.fillStyle='rgba(255,255,255,.12)';
   drawHero(tn,pc,lvl);
-  g.font=FN(16); g.fillStyle=hurtAge<.3?'#ff5a6e':BONE; g.fillText('HP '+'♥'.repeat(Math.max(P||0,0)),20,40);
-  lost=lost.filter(h=>now()-h.t0<.8); for(const h of lost){ const t=now()-h.t0; g.save(); g.globalAlpha=1-t/.8; g.fillStyle='#f33'; g.translate(h.x,40+t*110); g.rotate(t*3); g.fillText('♥',0,0); g.restore() } // 잃은 하트가 깨져 떨어짐
-  g.font=FN(16); g.fillStyle=streak>=LAYERS[0]?'#ffc857':BONE+'99'; g.fillText('콤보 '+streak+'  '+'■'.repeat(LAYERS.filter(n=>streak>=n).length)+'□'.repeat(LAYERS.filter(n=>streak<n).length),20,64);
-  g.textAlign='right'; g.fillStyle=BONE; g.fillText(BOSSES[stage]?'보스'+(stage-24)+' '+(bossMode==='hard'?'하드':'노멀')+'  처치 '+(kills||0)+'/'+bossTotal:'스테이지 '+stage+'  처치 '+(kills||0)+'/'+goal(),700,40); g.textAlign='left';
+  g.font=FN(16); g.fillStyle=hurtAge<.3?'#ff5a6e':BONE; g.fillText('HP '+'♥'.repeat(Math.max(P||0,0)),20,48);
+  lost=lost.filter(h=>now()-h.t0<.8); for(const h of lost){ const t=now()-h.t0; g.save(); g.globalAlpha=1-t/.8; g.fillStyle='#f33'; g.translate(h.x,48+t*110); g.rotate(t*3); g.fillText('♥',0,0); g.restore() } // 잃은 하트가 깨져 떨어짐
+  g.font=FN(16); g.fillStyle=streak>=LAYERS[0]?'#ffc857':BONE+'99'; g.fillText('콤보 '+streak+'  '+'■'.repeat(LAYERS.filter(n=>streak>=n).length)+'□'.repeat(LAYERS.filter(n=>streak<n).length),20,72);
+  g.textAlign='right'; g.fillStyle=BONE; g.fillText(BOSSES[stage]?'보스'+(stage-24)+' '+(bossMode==='hard'?'하드':'노멀')+'  처치 '+(kills||0)+'/'+bossTotal:'스테이지 '+stage+'  처치 '+(kills||0)+'/'+goal(),700,48); g.textAlign='left';
   if(BOSSES[stage]&&running){ const B=BOSSES[stage], el=Math.max(0,(now()-bossT0)/beatLen()), c=Math.min(B.beats/8-1,el/8|0); // 보스 HP바 = 곡 남은 시간
     g.fillStyle=BONE+'33'; g.fillRect(20,8,680,6); g.fillStyle='#ff5a6e'; g.fillRect(20,8,680*Math.max(0,1-el/B.beats),6);
     g.fillStyle=BONE; g.font=FN(11); g.fillText('보스'+(stage-24)+'  '+B.sect(c),20,28); g.font=FN(16) }

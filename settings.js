@@ -15,6 +15,8 @@
     #set.open{display:flex}
     #set .row{display:flex;justify-content:space-between}
     #set .row b{font-weight:normal;color:var(--amber)}
+    #tlog{display:flex;flex-direction:column;gap:2px;opacity:.75;font-size:11px}
+    #tlog:empty{display:none}
     #set .btns{display:flex;gap:8px}
     #set .btns button{flex:1}
     #tune{position:fixed;inset:0;z-index:30;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#0c1420f2;padding:16px;box-sizing:border-box;overflow:auto}
@@ -36,27 +38,32 @@
   bar.insertBefore(btn, $('mbtn'));
   const panel = document.createElement('div'); panel.id = 'set';
   panel.innerHTML = '<div class="row"><span>입력 보정</span><b id="p-off"></b></div><div class="row"><span>화면 보정</span><b id="p-voff"></b></div>'
-    + '<div class="btns"><button type="button" id="open-tune">튜닝</button><button type="button" id="rst">기본값</button></div>';
+    + '<div id="tlog"></div><div class="btns"><button type="button" id="open-tune">튜닝</button><button type="button" id="rst">기본값</button></div>';
   menu.appendChild(panel);
   btn.onclick = () => { list.classList.remove('open'); panel.classList.toggle('open'); };
   $('mbtn').addEventListener('click', () => panel.classList.remove('open'));
 
   // ---- 튜닝 화면 ----
-  const HINT = '소리가 나는 순간 점이 칸에 닿습니다. 그때 화면을 탭하거나 아무 키나 누르세요.';
+  const HINT = '소리가 나는 순간 점이 칸에 닿습니다. 그때 화면을 탭하거나 아무 키나 누르세요. 3번 이상 탭하면 입력 보정이 최근 5번 기준으로 자동으로 맞춰집니다.';
   const T = document.createElement('div'); T.id = 'tune';
   T.innerHTML = '<canvas id="tc" width="640" height="220"></canvas><p id="tmsg">' + HINT + '</p>'
-    + '<div class="ctl"><span>입력 보정</span><b id="v-off"></b><input id="s-off" type="range" min="-200" max="300" step="5"></div>'
+    + '<div class="ctl"><span>입력 보정 (자동)</span><b id="v-off"></b></div>'
     + '<div class="ctl"><span>화면 보정</span><b id="v-voff"></b><input id="s-voff" type="range" min="-100" max="300" step="5"></div>'
-    + '<div class="btns"><button type="button" id="t-avg">평균으로 맞추기</button><button type="button" id="t-close">닫기</button></div>';
+    + '<div class="btns"><button type="button" id="t-close">닫기</button></div>';
   document.body.appendChild(T);
-  const sOff = $('s-off'), sVoff = $('s-voff'), c = $('tc'), g = c.getContext('2d');
-  let devs = [];
-  const show = () => { sOff.value = tune.off; sVoff.value = tune.voff; for (const [id, k] of [['v-off', 'off'], ['v-voff', 'voff'], ['p-off', 'off'], ['p-voff', 'voff']]) $(id).textContent = tune[k] + 'ms'; };
+  const sVoff = $('s-voff'), c = $('tc'), g = c.getContext('2d');
+  let devs = [], raw5 = []; // devs = 보정 후 남은 어긋남(눈금 표시용) · raw5 = 보정 전 원래 어긋남 최근 5개 (이걸로 입력 보정을 계산해서 되먹임이 없음)
+  const show = () => { sVoff.value = tune.voff; for (const [id, k] of [['v-off', 'off'], ['v-voff', 'voff'], ['p-off', 'off'], ['p-voff', 'voff']]) $(id).textContent = tune[k] + 'ms'; };
   const set = (k, v) => { tune[k] = Math.round(v); apply(); show(); save(); };
-  sOff.oninput = () => { set('off', +sOff.value); devs = []; }; sVoff.oninput = () => set('voff', +sVoff.value);
-  for (const s of [sOff, sVoff]) s.onchange = () => s.blur(); // 슬라이더가 포커스를 잡으면 방향키가 값을 바꿔서 탭과 겹침
+  sVoff.oninput = () => set('voff', +sVoff.value);
+  for (const s of [sVoff]) s.onchange = () => s.blur(); // 슬라이더가 포커스를 잡으면 방향키가 값을 바꿔서 탭과 겹침
   $('rst').onclick = () => { tune = { ...DEF }; apply(); show(); save(); };
-  show();
+  // 튜닝 기록: 튜닝을 마칠 때마다 시각·입력 보정·화면 보정을 남김 (최근 30개 저장, 패널에는 5개 표시)
+  const LOG = 'bp.tuneLog'; let hist = [];
+  try { hist = JSON.parse(localStorage.getItem(LOG) || '[]'); } catch (_) {}
+  const drawLog = () => { $('tlog').innerHTML = hist.length ? '<span>튜닝 기록</span>' + hist.slice(-5).reverse().map(h => '<span>' + new Date(h.t).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) + '  입력 ' + h.off + 'ms  화면 ' + h.voff + 'ms</span>').join('') : ''; };
+  const log = () => { hist.push({ t: Date.now(), off: tune.off, voff: tune.voff }); hist = hist.slice(-30); try { localStorage.setItem(LOG, JSON.stringify(hist)); } catch (_) {} drawLog(); };
+  show(); drawLog();
 
   const GAP = .6, CELL = 90, BX = 560; // 박 간격(초) · 점 사이 간격(px) · 칸 위치
   let t0 = 0, nextI = 0, timer = 0, raf = 0, flashAt = -9;
@@ -67,10 +74,11 @@
   const onTap = e => {
     if (e.type === 'pointerdown' && e.target.closest('button,input')) return;
     if (e.type === 'keydown' && (e.repeat || e.key === 'Escape' || e.key === 'Tab')) return;
-    const j = stamp(e) - tune.off / 1000, k = Math.round((j - t0) / GAP), dev = (j - (t0 + k * GAP)) * 1000; // 입력 보정을 반영한 뒤 소리와의 차이
-    if (Math.abs(dev) > 250) return;
-    devs.push(dev); if (devs.length > 8) devs.shift(); flashAt = ac.currentTime;
-    $('tmsg').textContent = '이번 ' + txt(dev) + '   평균 ' + txt(avg());
+    const j = stamp(e), k = Math.round((j - t0) / GAP), raw = (j - (t0 + k * GAP)) * 1000; // 보정 전 소리와의 차이
+    raw5.push(raw); if (raw5.length > 5) raw5.shift();
+    if (raw5.length >= 3) { const m = [...raw5].sort((x, y) => x - y)[raw5.length >> 1]; set('off', Math.max(-200, Math.min(300, m))); } // 최근 5개의 중앙값 (한 번 잘못 눌러도 안 흔들림)
+    const dev = raw - tune.off; devs.push(dev); if (devs.length > 8) devs.shift(); flashAt = ac.currentTime;
+    $('tmsg').textContent = '이번 ' + txt(dev) + (raw5.length >= 3 ? '   입력 보정 ' + tune.off + 'ms' : '   (' + raw5.length + '/3)');
   };
   const draw = () => {
     raf = requestAnimationFrame(draw);
@@ -85,14 +93,13 @@
     devs.forEach((d, i) => { g.fillStyle = 'rgba(154,208,255,' + (.3 + .7 * (i + 1) / devs.length) + ')'; g.fillRect(X(d) - 3, 172, 6, 12); });
     if (devs.length) { g.fillStyle = '#ffc857'; g.fillRect(X(avg()) - 2, 164, 4, 28); }
   };
-  const close = () => { cancelAnimationFrame(raf); clearInterval(timer); removeEventListener('pointerdown', onTap, true); removeEventListener('keydown', onTap, true); T.classList.remove('open'); window.calibrating = false; };
+  const close = () => { if (raw5.length >= 3) log();  cancelAnimationFrame(raf); clearInterval(timer); removeEventListener('pointerdown', onTap, true); removeEventListener('keydown', onTap, true); T.classList.remove('open'); window.calibrating = false; };
   $('open-tune').onclick = () => {
     ac = ac || new AudioContext(); ac.resume();
     running = false; over = ''; window.calibrating = true; for (const k of [-1, 1]) kd[k] = 0; down = 0; // 게임을 멈추고 탭이 게임 입력으로 가지 않게
-    panel.classList.remove('open'); devs = []; t0 = ac.currentTime + .6; nextI = 0; $('tmsg').textContent = HINT;
+    panel.classList.remove('open'); devs = []; raw5 = []; t0 = ac.currentTime + .6; nextI = 0; $('tmsg').textContent = HINT;
     T.classList.add('open'); sched(); timer = setInterval(sched, 50); draw();
     addEventListener('pointerdown', onTap, true); addEventListener('keydown', onTap, true);
   };
   $('t-close').onclick = close;
-  $('t-avg').onclick = () => { if (!devs.length) return; set('off', tune.off + avg()); devs = []; $('tmsg').textContent = '평균만큼 입력 보정을 옮겼어요. 계속 탭하며 확인하세요.'; };
 })();

@@ -72,9 +72,10 @@ function bg(at,i){ // i = 8분음표 번호 (짝수 = 박 머리)
     else if(st===5) note(mf(c[[0,1,2,1,2,1,0,1][s]]+24),at,.1,.03,'square')
     else note(mf(c[[[0,1,2,1,0,1,2,1],[2,1,0,1,2,1,0,1],[0,2,1,2,0,2,1,2],[0,1,2,1,2,1,2,1]][st][s]]+(st===3?24:12)),at,.14,st?.035:.05,st?'sawtooth':'triangle') }
   // 멜로디 + 옥타브 겹침
-  const mt=['triangle','sawtooth','square','square','sine','square'][st], mv=[.09,.05,.05,.06,.11,.06][st];
+  const mt=['lead','lead','lead','lead','bell','square'][st], mv=[.09,.05,.05,.06,.11,.06][st];
   if(L(4)&&m) note(mf(m),at,st===5?.14:.3,mv,mt);
-  if(L(5)&&m) note(mf(m+12),at,.3,.04,'sine');
+  if(L(5)&&m) note(mf(m+12),at,.3,.04,'bell');
+  if(L(2)&&s===0&&st!==5) pad(c,at,beatLen()*4,.03); // 베이스 레이어부터 마디마다 화음 패드가 깔림
 }
 function holdTone(at,dur){ // 꾹 누르기 = 기 모으기: 누르는 동안 음이 한 옥타브 올라가고, 필터가 열리고, 떨림이 빨라지고, 바람소리가 커지다가 뗄 타이밍에 정점
   const f=mf(chordNow()[0]), e=at+dur, pk=Math.max(at+.01,e-.03);
@@ -102,7 +103,28 @@ function parrySfx(at,perfect){ // 패링 성공 "띵": 현재 화음음 + 콤보
   if(perfect) note(f*2,at+.02,.6,.05,'triangle'), note(f*3,at+.02,.35,.03,'sine'); // 반짝임
 }
 function missSfx(at=now()){ drum(95,40,.22,.35,at); noise(at,'lowpass',500,.25,.08) } // 실패: 낮고 탁한 "툭"
-function note(f,at,dur,vol,type){ const o=ac.createOscillator(),v=ac.createGain(); o.type=type; o.frequency.value=f; v.gain.setValueAtTime(.001,at); v.gain.linearRampToValueAtTime(vol,at+ATK); v.gain.exponentialRampToValueAtTime(.001,at+dur); o.connect(v).connect(OUT()); o.start(at); o.stop(at+dur+.01) }
+// ---- 음색: 단순 파형 대신 리버브가 걸린 겹친 소리. lead = 살짝 어긋난 톱니 2개 + 열렸다 닫히는 필터 · bell = FM 종(비정수배 변조) · pad = 느리게 차오르는 화음 ----
+let rev; const REVB=()=>rev||(rev=(()=>{ const c=ac.createConvolver(), n=ac.sampleRate*1.8|0, b=ac.createBuffer(2,n,ac.sampleRate), w=ac.createGain(); // 잔향: 감쇠하는 노이즈를 임펄스로
+  for(let k=0;k<2;k++){ const d=b.getChannelData(k); for(let i=0;i<n;i++) d[i]=(Math.random()*2-1)*(1-i/n)**3 } c.buffer=b; w.gain.value=.5; c.connect(w).connect(OUT()); return c })());
+function send(node,amt){ const g2=ac.createGain(); g2.gain.value=amt; node.connect(g2).connect(REVB()) }
+function lead(f,at,dur,vol){
+  const v=ac.createGain(), fl=ac.createBiquadFilter(), os=[-9,9].map(d=>{ const o=ac.createOscillator(); o.type='sawtooth'; o.frequency.value=f; o.detune.value=d; o.connect(fl); return o });
+  fl.type='lowpass'; fl.Q.value=1.5; fl.frequency.setValueAtTime(Math.min(f*7,9000),at); fl.frequency.exponentialRampToValueAtTime(Math.max(f*2,200),at+dur);
+  v.gain.setValueAtTime(.001,at); v.gain.linearRampToValueAtTime(vol*.6,at+ATK*3); v.gain.exponentialRampToValueAtTime(.001,at+dur);
+  fl.connect(v).connect(OUT()); send(v,.3); for(const o of os){ o.start(at); o.stop(at+dur+.02) }
+}
+function bell(f,at,dur,vol){
+  const c=ac.createOscillator(), m=ac.createOscillator(), mg=ac.createGain(), v=ac.createGain(); c.frequency.value=f; m.frequency.value=f*3.5;
+  mg.gain.setValueAtTime(f*1.6,at); mg.gain.exponentialRampToValueAtTime(1,at+dur*.8); m.connect(mg).connect(c.frequency); // 변조가 빨리 줄어 "띵" 뒤에 맑은 소리만 남음
+  v.gain.setValueAtTime(.001,at); v.gain.linearRampToValueAtTime(vol,at+ATK); v.gain.exponentialRampToValueAtTime(.001,at+dur*1.4);
+  c.connect(v).connect(OUT()); send(v,.5); for(const o of [c,m]){ o.start(at); o.stop(at+dur*1.4+.02) }
+}
+function pad(ch,at,dur,vol){ // 화음 패드: 3음 x 살짝 어긋난 삼각파 2개, 천천히 차올랐다 사라짐
+  const v=ac.createGain(); v.gain.setValueAtTime(.001,at); v.gain.linearRampToValueAtTime(vol,at+Math.min(.3,dur*.3)); v.gain.setValueAtTime(vol,at+dur*.6); v.gain.exponentialRampToValueAtTime(.001,at+dur);
+  for(const n of ch) for(const d of [-6,6]){ const o=ac.createOscillator(); o.type='triangle'; o.frequency.value=mf(n); o.detune.value=d; o.connect(v); o.start(at); o.stop(at+dur+.02) }
+  v.connect(OUT()); send(v,.6);
+}
+function note(f,at,dur,vol,type){ if(type==='lead') return lead(f,at,dur,vol); if(type==='bell') return bell(f,at,dur,vol); const o=ac.createOscillator(),v=ac.createGain(); o.type=type; o.frequency.value=f; v.gain.setValueAtTime(.001,at); v.gain.linearRampToValueAtTime(vol,at+ATK); v.gain.exponentialRampToValueAtTime(.001,at+dur); o.connect(v).connect(OUT()); o.start(at); o.stop(at+dur+.01) }
 const mf=m=>440*2**((m-69)/12); // MIDI → Hz
 const setBpm=()=>{ $('bpm').value=BPMS[stage] };
 let bossT0=0, bossTotal=0, bossQ=[], bossMode='normal';
@@ -129,9 +151,10 @@ function bossBg(at,i){ // i = 8분음표 번호, 384 = 곡 끝
   else if(!G(2)){}
   else if(L<2){ if(beat&&L===1||s%4===0) note(root,at,.2,.09,'square') }                            // 인트로·벌스 베이스
   else note(beat?root:root*2,at,.12,.08,'sawtooth');                                                // 빌드~: 8분음표 베이스
-  if(L===0&&s===0) note(mf(ch[0]+24),at,.9,.03,'sine');                                             // 인트로: 높은 핑
+  if(L===0&&s===0) note(mf(ch[0]+24),at,.9,.03,'bell');
+  if(s===0&&L!==3&&G(2)) pad(ch,at,beatLen()*4,.03);                                             // 인트로: 높은 핑
   if(L>=2&&drums&&G(3)) note(mf(ch[[0,1,2,1,0,1,2,1][s]]+(L===5?24:12)),at,.14,.035,'sawtooth');           // 아르페지오
-  if(m&&G(4)){ if(L===2) note(mf(m),at,.3,.08,'triangle'); else if(L===3) note(mf(m),at,.5,.06,'sine'); else if(full){ note(mf(m),at,.3,.06,'square'); if(L===5&&G(5)) note(mf(m+12),at,.3,.04,'sine') } }
+  if(m&&G(4)){ if(L===2) note(mf(m),at,.3,.08,'lead'); else if(L===3) note(mf(m),at,.5,.06,'bell'); else if(full){ note(mf(m),at,.3,.06,'lead'); if(L===5&&G(5)) note(mf(m+12),at,.3,.04,'bell') } }
 }
 // 보스2: 160BPM 전투 BGM. 8분음표 안에 16분음표를 한 번 더 쪼개서(at+beatLen()/4) 하이햇·베이스·아르페지오를 빽빽하게. 480 = 곡 끝
 function bossBg2(at,i){
@@ -150,8 +173,9 @@ function bossBg2(at,i){
   else if(L===1){ note(beat?root:root*2,at,.1,.08,'sawtooth'); if(beat) note(root,at2,.07,.05,'sawtooth') } // 벌스: 말달리는 베이스
   else { note(beat?root:root*2,at,.1,.08,'sawtooth'); if(L===5||beat) note(root,at2,.07,.05,'sawtooth') }  // 프리~: 옥타브 점프 (+ 피날레 16분 갤럽)
   if(L>=2&&drums&&G(3)){ const k=s*2, o=L===5?24:12; note(mf(ch[k%3]+o),at,.08,.03,'square'); note(mf(ch[(k+1)%3]+o),at2,.08,.03,'square') } // 16분음표 아르페지오
+  if(s===0&&L!==3&&G(2)) pad(ch,at,beatLen()*4,.03);
   if(full&&G(3)&&(s===0||s===3||s===6)){ note(root*2,at,.25,.06,'sawtooth'); note(root*3,at,.25,.05,'sawtooth') } // 파워코드 스탭 3+3+2
-  if(m&&G(4)){ if(L===1) note(mf(m),at,.25,.06,'triangle'); else if(L===2) {note(mf(m),at,.25,.07,'square'); if(G(5)) note(mf(m+12),at,.2,.03,'sine')} else if(L===3) note(mf(m),at,.5,.06,'sine'); else { note(mf(m),at,.25,.07,'square'); if(G(5)) note(mf(m+12),at,.25,L===5?.05:.03,L===5?'sawtooth':'sine') } }
+  if(m&&G(4)){ if(L===1) note(mf(m),at,.25,.06,'lead'); else if(L===2) {note(mf(m),at,.25,.07,'lead'); if(G(5)) note(mf(m+12),at,.2,.03,'bell')} else if(L===3) note(mf(m),at,.5,.06,'bell'); else { note(mf(m),at,.25,.07,'lead'); if(G(5)) note(mf(m+12),at,.25,L===5?.05:.03,'bell') } }
 }
 function start(){
   ac=ac||new AudioContext(); ac.resume();

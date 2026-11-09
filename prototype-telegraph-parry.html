@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>PROTOTYPE - Telegraph Parry (throwaway)</title>
+<style>
+body{margin:0;background:#111;color:#eee;font:14px monospace;text-align:center}
+canvas{background:#1b1b2a;display:block;margin:8px auto;max-width:100%}
+input,select{width:60px}
+</style></head><body>
+<div>PROTOTYPE — 적의 사전 동작을 보고 같은 방향으로 가드 (방향키/WASD, Space=시작). 페인트(<b style="color:#fb0">처음부터 주황색인 적</b>)엔 속지 말 것! 패링 쌓아 BREAK → 아무 방향키로 반격</div>
+<canvas id="c" width="720" height="420"></canvas>
+<div>예고 시간 <input id="wind" type="number" value="900">ms · 판정 ±<input id="win" type="number" value="150">ms · 방향 <select id="dirs" style="width:auto"><option value="2">2 (좌우)</option><option value="4" selected>4 (상하좌우)</option></select> · 입력 보정 <input id="off" type="number" value="0">ms</div>
+<pre id="log"></pre>
+<script>
+const $=id=>document.getElementById(id), cv=$('c'), g=cv.getContext('2d');
+const CX=360, CY=210, DIRS=[{n:'→',x:1,y:0,k:['d','arrowright']},{n:'←',x:-1,y:0,k:['a','arrowleft']},{n:'↑',x:0,y:-1,k:['w','arrowup']},{n:'↓',x:0,y:1,k:['s','arrowdown']}];
+const MAXP=5, BOSS_HP=3;
+let ac, running=false, over='', hp, kills, foe, boss, log=[], msg='', flash=0, pressT=-9999, pressD=DIRS[0], stunUntil=0;
+const t=()=>performance.now();
+const sfx=(f,d,v=.3)=>{ if(!ac)return; const o=ac.createOscillator(),a=ac.createGain(); o.frequency.value=f; a.gain.setValueAtTime(v,ac.currentTime); a.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d); o.connect(a).connect(ac.destination); o.start(); o.stop(ac.currentTime+d) };
+const pick=()=>{const r=Math.random(); return r<.4?'normal':r<.6?'fast':r<.8?'feint':'double'};
+function spawn(kind){ // kind 없으면 랜덤. 'second'(2연타 뒷타)·'fast'(경직 추격)는 대기 없이 바로
+  const n=+$('dirs').value, w0=+$('wind').value||900, k=kind||pick(), immediate=!!kind;
+  const w=k==='fast'?w0*.55:k==='second'?w0*.5:w0;
+  foe={dir:DIRS[Math.floor(Math.random()*n)], kind:k, t0:t()+(immediate?0:500+Math.random()*700), w, done:false};
+  foe.hit=foe.t0+w;
+}
+function start(){ ac=ac||new AudioContext(); ac.resume(); hp=5; kills=0; over=''; log=[]; msg=''; $('log').textContent=''; boss={hp:BOSS_HP,post:0,breakUntil:0}; stunUntil=0; running=true; spawn() }
+function say(txt){ msg=txt; flash=1; log.unshift(txt); $('log').textContent=log.slice(0,6).join('\n') }
+// res: 'hit'(맞음) | 'parry'(퍼펙트 여부는 perfect) | 'neutral'
+function resolve(txt,res,perfect,after){
+  foe.done=true; foe.doneT=t(); foe.next=t()+700; foe.after=after;
+  if(res==='parry'){
+    sfx(180,.25,.6); boss.post+=perfect?2:1;
+    if(boss.post>=MAXP){ boss.post=0; boss.breakUntil=t()+1800; foe.after=undefined; txt+='  → BREAK! 반격!'; sfx(500,.3,.5) }
+  } else if(res==='hit'){ hp--; sfx(70,.4,.8) }
+  say(txt);
+  if(hp<=0){over='YOU DIED  enemies down:'+kills; running=false; return}
+  if(foe.kind==='double'&&!foe.after&&res!=='neutral'&&boss.breakUntil<t()){ foe.after='second'; foe.next=t()+150 } // 2연타: 바로 한 번 더
+}
+function counter(){
+  boss.hp--; boss.breakUntil=0; foe.next=t()+700; sfx(300,.3,.7);
+  if(boss.hp<=0){ kills++; boss.hp=BOSS_HP; say('COUNTER! ENEMY DOWN') } else say('COUNTER! 적 HP '+boss.hp);
+}
+function step(){
+  if(!running) return;
+  const now=t();
+  if(foe.done){ if(boss.breakUntil>now) return; if(boss.breakUntil&&boss.breakUntil<=now){boss.breakUntil=0; foe.next=now+500} if(now>=foe.next) spawn(foe.after); return }
+  if(now>foe.hit+(+$('win').value||150)){
+    if(foe.kind==='feint') resolve('FEINT 무시 — 잘 참았다','neutral');
+    else resolve('MISS (맞음)','hit');
+  }
+}
+addEventListener('keydown',ev=>{
+  if(ev.repeat) return;
+  const k=ev.key.toLowerCase();
+  if(k===' '||k==='enter'){ if(!running) start(); return }
+  const d=DIRS.slice(0,+$('dirs').value===2?2:4).find(d=>d.k.includes(k));
+  if(!d||!running) return; ev.preventDefault();
+  const now=t(); pressT=now; pressD=d;
+  if(now<stunUntil) return;
+  if(boss.breakUntil>now){ counter(); return }
+  if(foe.done) return;
+  const dt=now-(+$('off').value||0)-foe.hit, W=+$('win').value||150, ms=Math.round(dt)+'ms';
+  if(dt<-W-250) return; // 예고 초반 입력은 무시
+  if(foe.kind==='feint'){ stunUntil=now+700; resolve('속았다! 경직','neutral',false,'fast'); foe.next=now+50; return } // 페인트에 가드 = 경직 → 바로 추격타
+  if(dt<-W){ resolve('너무 일찍 눌러서 실패 '+ms,'hit'); return }
+  if(d!==foe.dir) resolve('WRONG DIR ('+d.n+' / 정답 '+foe.dir.n+')','hit');
+  else { const pf=Math.abs(dt)<=W/2; resolve((pf?'PERFECT ':dt<0?'EARLY ':'LATE ')+ms,'parry',pf) }
+});
+function bar(x,y,w,v,max,col,label){ g.fillStyle='#333'; g.fillRect(x,y,w,10); g.fillStyle=col; g.fillRect(x,y,w*v/max,10); g.fillStyle='#aaa'; g.font='11px monospace'; g.textAlign='left'; g.fillText(label,x,y-3) }
+function draw(){
+  g.clearRect(0,0,720,420);
+  const now=t(), stunned=now<stunUntil, broken=running&&boss.breakUntil>now;
+  g.strokeStyle=stunned?'#f66':'#9ad0ff'; g.fillStyle=stunned?'#f663':'#9ad0ff33'; g.lineWidth=3; g.beginPath(); g.arc(CX,CY,26,0,7); g.fill(); g.stroke();
+  if(broken){ g.strokeStyle='#ff0'; g.lineWidth=5; g.beginPath(); g.arc(CX,CY,70+Math.sin(now/60)*4,0,7); g.stroke(); g.fillStyle='#ff0'; g.font='bold 22px monospace'; g.textAlign='center'; g.fillText('BREAK! 아무 방향키 = 반격',CX,CY-90); g.textAlign='left' }
+  if(running&&foe&&!broken&&(!foe.done||now-foe.doneT<350)){
+    const el=now-foe.t0, p=foe.done?1:el/foe.w, d=foe.dir, fe=foe.kind==='feint';
+    if(el>=0){
+      const back=p<.7?40*(p/.7):p<.9?40:fe?40:40-65*((p-.9)/.1), shake=(p>=.7&&p<.9)?Math.sin(now/20)*3:0;
+      const dist=110+back, x=CX+d.x*dist+(d.y?shake:0), y=CY+d.y*dist+(d.x?shake:0), charge=p>=.7, col=fe?'#fb0':charge?'#fff':'#f55'; // 페인트는 예고 처음부터 주황
+      const px=-d.y, py=d.x, tilt=p<.9?25*Math.min(1,p/.7):-10;
+      g.save(); g.globalCompositeOperation='lighter'; g.shadowColor=col; g.shadowBlur=charge?25:10;
+      g.strokeStyle=col; g.fillStyle=col+'5'; g.lineWidth=4;
+      g.beginPath(); g.arc(x,y,22,0,7); g.fill(); g.stroke();
+      const lg=p<.9||fe?-45:-70; g.lineWidth=6; g.beginPath(); g.moveTo(x+px*tilt,y+py*tilt); g.lineTo(x+px*tilt+d.x*lg,y+py*tilt+d.y*lg); g.stroke(); g.restore();
+      g.fillStyle='#fff'; g.font='bold 22px monospace'; g.textAlign='center'; g.textBaseline='middle'; g.fillText(d.n,x,y);
+    }
+  }
+  if(now-pressT<250){ const a=Math.atan2(pressD.y,pressD.x); g.strokeStyle='#9ad0ff'; g.lineWidth=9; g.beginPath(); g.arc(CX,CY,46,a-.9,a+.9); g.stroke() }
+  g.textBaseline='alphabetic'; g.textAlign='left'; g.fillStyle='#eee'; g.font='16px monospace';
+  g.fillText('HP '+'♥'.repeat(Math.max(hp||0,0)),20,40); g.fillText('DOWN '+(kills||0),600,40);
+  if(boss){ bar(260,24,200,boss.hp,BOSS_HP,'#e55','ENEMY HP'); bar(260,52,200,boss.post,MAXP,'#fc3','POSTURE (패링으로 쌓기)') }
+  if(flash>0){g.fillStyle='rgba(255,255,255,'+flash+')';g.font='22px monospace';g.fillText(msg,180,100);flash-=.015}
+  if(!running){g.fillStyle='#fff';g.font='28px monospace';g.fillText(over||'Space / Enter 로 시작',200,380)}
+}
+(function loop(){ step(); draw(); requestAnimationFrame(loop) })();
+</script></body></html>

@@ -12,7 +12,7 @@
   // ---- 2) 터치·마우스 입력: 화면 왼쪽 절반 = 왼쪽 패링, 오른쪽 절반 = 오른쪽 패링 (멀티터치 가능). 멈춰 있을 땐 탭하면 시작 ----
   const ptr = new Map(), inMenu = e => e.target.closest && e.target.closest('#menu');
   addEventListener('pointerdown', e => {
-    if (inMenu(e)) return;
+    if (inMenu(e) || window.calibrating) return;
     e.preventDefault();
     if (!running) { start(); return; }
     const dir = e.clientX < innerWidth / 2 ? -1 : 1;

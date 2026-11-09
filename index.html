@@ -21,10 +21,11 @@ canvas{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:m
 </style></head><body>
 <div id="menu"><button id="mbtn" type="button">스테이지 선택</button><div id="list"></div></div>
 <canvas id="c" width="720" height="360"></canvas>
-<div hidden><input id="bpm" value="120"><input id="off" value="0"><input id="win" value="120"></div>
+<div hidden><input id="bpm" value="120"><input id="off" value="0"><input id="win" value="120"><input id="voff" value="0"></div>
 <script src="stages.js"></script>
 <script src="main.js"></script>
 <script src="mobile.js"></script>
+<script src="settings.js"></script>
 <script>
 { const list=document.getElementById('list'), add=(label,n,mode,cls)=>{ const b=document.createElement('button'); b.type='button'; b.textContent=label; if(cls) b.className=cls;
     b.onclick=()=>{ goStage(n,b,mode); list.classList.remove('open') }; list.appendChild(b) };

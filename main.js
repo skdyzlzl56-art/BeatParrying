@@ -260,6 +260,7 @@ function release(dir){ // 꾹 누르기 판정: 뗄 타이밍(rel) ±win 이면 
 }
 addEventListener('keydown',e=>{
   if(e.repeat) return;
+  if(window.calibrating) return;
   const k=e.key.toLowerCase();
   if(k===' '||k==='enter'){ if(!running) start(); return }
   const dir=dirOf(k);
@@ -346,7 +347,7 @@ function scene(hurtAge){
   g.stroke(); g.lineWidth=3; g.fillStyle=BONE+'aa'; g.font=FN(12); g.textAlign='center';
   for(let i=0;i<7;i++) for(const s of [-1,1]) g.fillText(i,PX+s*(NEAR+(i+.5)*CELL),345);
   g.textAlign='left';
-  if(running) [...enemies].sort((a,b)=>b.lane-a.lane).forEach(e=>drawEnemy(e,now()));
+  if(running) [...enemies].sort((a,b)=>b.lane-a.lane).forEach(e=>drawEnemy(e,now()-(+$('voff').value||0)/1000));
   const pc=lvl>=6?'hsl('+(tn*160%360)+',90%,70%)':'#9ad0ff'; g.strokeStyle=pc; g.fillStyle=pc+(lvl>=6?'':'33'); g.lineWidth=3; if(lvl>=6) g.fillStyle='rgba(255,255,255,.12)';
   drawHero(tn,pc,lvl);
   g.font=FN(16); g.fillStyle=hurtAge<.3?'#ff5a6e':BONE; g.fillText('HP '+'♥'.repeat(Math.max(P||0,0)),20,40);

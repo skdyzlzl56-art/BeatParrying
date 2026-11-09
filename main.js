@@ -1,7 +1,7 @@
 document.fonts.load('16px Galmuri11'); // 캔버스 글자도 Galmuri (로드 전엔 monospace 로 폴백)
 
 const $=id=>document.getElementById(id), cv=$('c'), g=cv.getContext('2d');
-let lastLvl=0, auroraLvl=0, starT=-9;
+let bgH=200, lastLvl=0, auroraLvl=0, starT=-9;
 let down=0, kd={'-1':0,'1':0}, ac, running=false, over='', P, kills, enemies=[], gridT, ci, flash=0, msg='', fx=[], flung=[], lost=[], hurtT=-9, P_dir=0, pressT=-9;
 let pendG=null, groupEnd=0; const MAX_ACTIVE=5, CELL=45, NEAR=50; let sc=0, nx=0; // MAX_ACTIVE = 동시 적 수
 const beatLen=()=>60/(+$('bpm').value||120);
@@ -304,29 +304,17 @@ function drawHero(tn,pc,lvl){
   const a=ac?tn-pressT:9, face=P_dir||1, holding=!!down, ph=running?clamp(1-(gridT-tn)/beatLen(),0,1):0;
   const k=clamp(a/.12,0,1), snap=1-(1-k)**4, back=clamp((a-.12)/.25,0,1);
   const pulse=1+Math.sin(ph*Math.PI)*.1, kick=a<.2?(1-a/.2)*10:0, hot=a<.3||holding;
-  // 3D 구체: 위도·경도 선을 회전/원근 투영하고 깊이로 밝기를 줌 (뒤쪽 선은 흐리게). 선 위를 달리는 빛 = 표면을 도는 별. 파편은 구 둘레 궤도에서 앞/뒤로 지나감
-  const rr=34*pulse, ay=tn*.7+(a<.3?(1-a/.3)*3:0), ca=Math.cos(ay), sa=Math.sin(ay), ct=Math.cos(.45), st=Math.sin(.45);
-  const P3=(x,y,z)=>{ const x1=x*ca+z*sa, z1=-x*sa+z*ca, y2=y*ct-z1*st, z2=y*st+z1*ct, f=300/(300-z2); return [x1*f,y2*f,z2] }; // y축 회전 → 기울임 → 원근
-  const n=3+Math.min(lvl,3), pts=Array.from({length:n},(_,k)=>{ const t=tn*1.6+k*6.283/n; return [Math.cos(t)*58,Math.sin(t)*58*.5,t,Math.sin(t)] }), fl=clamp(1-(tn-starT)/.7,0,1); // 별자리 선(1 사슬 · 3 닫힘 · 4 별 모양 · 5 코어와 연결 · 6 달성 순간 번쩍)
-  g.save(); g.translate(PX-face*kick,GY); g.lineCap='round';
-  g.strokeStyle=pc; g.lineWidth=1; const ln=(p,q,al)=>{ g.globalAlpha=Math.min(1,al+fl); g.beginPath(); g.moveTo(p[0],p[1]); g.lineTo(q[0],q[1]); g.stroke() };
-  if(lvl>=1) for(let k=0;k<n;k++) if(lvl>=3||k<n-1) ln(pts[k],pts[(k+1)%n],.3);
-  if(lvl>=4) for(let k=0;k<n;k++) ln(pts[k],pts[(k+2)%n],.18);
-  if(lvl>=5) for(let k=0;k<n;k++) ln([0,0],pts[k],.15);
-  const shard=p=>{ g.save(); g.translate(p[0],p[1]); g.rotate(p[2]*2); const s=1+.4*p[3]; g.globalAlpha=.55+.45*(p[3]+1)/2; g.fillStyle=pc; g.fillRect(-3*s,-3*s,6*s,6*s); g.restore() };
-  g.globalAlpha=1; for(const p of pts) if(p[3]<=0) shard(p); // 뒤쪽 파편
-  if(hot){ g.shadowColor=pc; g.shadowBlur=holding?14+6*Math.sin(tn*14):20*(1-a/.3) }
-  const gr=g.createRadialGradient(-rr*.35,-rr*.4,rr*.1,0,0,rr); gr.addColorStop(0,'rgba(255,255,255,.35)'); gr.addColorStop(.5,'rgba(60,80,140,.35)'); gr.addColorStop(1,'rgba(10,16,32,.9)');
-  g.globalAlpha=1; g.fillStyle=gr; g.beginPath(); g.arc(0,0,rr,0,7); g.fill(); g.strokeStyle=pc; g.lineWidth=2; g.stroke(); g.shadowBlur=0; // 구 몸통 + 외곽선
-  const seg=(p,q)=>{ const d=(p[2]+q[2])/(2*rr); g.globalAlpha=.1+.5*(d+1)/2; g.beginPath(); g.moveTo(p[0],p[1]); g.lineTo(q[0],q[1]); g.stroke() };
-  g.strokeStyle=pc; g.lineWidth=1.1;
-  for(const ph of [-1.05,-.52,0,.52,1.05]){ let pr=P3(Math.cos(ph)*rr,Math.sin(ph)*rr,0); for(let u=.35;u<=6.64;u+=.35){ const q=P3(Math.cos(ph)*Math.cos(u)*rr,Math.sin(ph)*rr,Math.cos(ph)*Math.sin(u)*rr); seg(pr,q); pr=q } } // 위도선
-  for(let m=0;m<6;m++){ const lo=m*Math.PI/6, cl=Math.cos(lo), sl=Math.sin(lo); let pr=P3(rr*cl,0,rr*sl); for(let u=.35;u<=6.64;u+=.35){ const q=P3(Math.cos(u)*cl*rr,Math.sin(u)*rr,Math.cos(u)*sl*rr); seg(pr,q); pr=q } } // 경도선
-  for(let k=0,rn=1+Math.min(lvl,3);k<rn;k++){ const bt=k*1.05, cb=Math.cos(bt), sb=Math.sin(bt), at=u=>P3(Math.cos(u)*rr,Math.sin(u)*cb*rr,Math.sin(u)*sb*rr), u0=tn*1.9+k*2.1; // 표면을 달리는 빛 + 꼬리
-    let pr=at(u0); for(let i=1;i<=16;i++){ const q=at(u0-i*.085), w=1-i/16, d=(q[2]+rr)/(2*rr); g.globalAlpha=w*(.25+.75*d); g.strokeStyle='#fff'; g.lineWidth=.8+3*w; g.beginPath(); g.moveTo(pr[0],pr[1]); g.lineTo(q[0],q[1]); g.stroke(); pr=q }
-    const h=at(u0); g.globalAlpha=.3+.7*(h[2]+rr)/(2*rr); g.fillStyle='#fff'; g.shadowColor=pc; g.shadowBlur=10; g.beginPath(); g.arc(h[0],h[1],3.2,0,7); g.fill(); g.shadowBlur=0 }
-  g.globalAlpha=.4; g.fillStyle='#fff'; g.beginPath(); g.ellipse(-rr*.38,-rr*.45,rr*.16,rr*.09,-.7,0,7); g.fill(); // 하이라이트
-  g.globalAlpha=1; for(const p of pts) if(p[3]>0) shard(p); // 앞쪽 파편 (구를 가리고 지나감)
+  // 3D 선: 구체 대신 입체로 도는 선(고리) 몇 개. 각 고리는 자기 축으로 천천히 돌고, 앞쪽은 밝고 굵게·뒤쪽은 흐리고 가늘게 그려서 깊이를 줌. 선 위를 달리는 빛이 신비한 흐름을 만듦. 콤보가 오르면 고리가 늘어남(최대 5)
+  const m=3+Math.min(lvl,2), base=28*pulse, boost=a<.3?(1-a/.3)*3:0, fl=clamp(1-(tn-starT)/.7,0,1);
+  const rp=(k,u)=>{ const R=base*(1+.28*k), ax=.9+k*1.1+tn*(.35+.12*k)*(k%2?-1:1)+boost, ay=k*1.3+tn*(.5-.1*k)+boost*.7, x=Math.cos(u)*R, y=Math.sin(u)*R, // 기본 원 → X축 회전 → Y축 회전 → 원근
+    y1=y*Math.cos(ax), z1=y*Math.sin(ax), x2=x*Math.cos(ay)+z1*Math.sin(ay), z2=-x*Math.sin(ay)+z1*Math.cos(ay), f=300/(300-z2); return [x2*f,y1*f,z2/R] };
+  g.save(); g.translate(PX-face*kick,GY); g.lineCap='round'; if(hot){ g.shadowColor=pc; g.shadowBlur=holding?12+5*Math.sin(tn*14):16*(1-a/.3) }
+  for(let k=0;k<m;k++){ g.strokeStyle=pc; let pr=rp(k,0);
+    for(let u=.12;u<=6.4;u+=.12){ const q=rp(k,u), d=(pr[2]+q[2])/2, w=(d+1)/2; g.globalAlpha=.1+.55*w; g.lineWidth=.8+1.6*w; g.beginPath(); g.moveTo(pr[0],pr[1]); g.lineTo(q[0],q[1]); g.stroke(); pr=q } // 고리
+    const u0=tn*(2.2+.4*k)+k*2; pr=rp(k,u0); g.strokeStyle='#fff'; // 고리 위를 달리는 빛 + 꼬리
+    for(let i=1;i<=18;i++){ const q=rp(k,u0-i*.07), w=1-i/18, d=((pr[2]+q[2])/2+1)/2; g.globalAlpha=w*(.2+.8*d); g.lineWidth=.8+2.6*w; g.beginPath(); g.moveTo(pr[0],pr[1]); g.lineTo(q[0],q[1]); g.stroke(); pr=q }
+    const h=rp(k,u0); g.globalAlpha=.4+.6*(h[2]+1)/2; g.fillStyle='#fff'; g.beginPath(); g.arc(h[0],h[1],2.2+1.4*(h[2]+1)/2,0,7); g.fill() }
+  g.globalAlpha=1; g.fillStyle='#fff'; g.shadowColor=pc; g.shadowBlur=12; g.beginPath(); g.arc(0,0,3.2*pulse,0,7); g.fill(); g.shadowBlur=0; // 중심의 점
   if(fl>0){ g.strokeStyle='rgba(255,255,255,'+fl+')'; g.lineWidth=3; g.beginPath(); g.arc(0,0,(1-fl)*170,0,7); g.stroke() }
   g.restore();
   for(const d of [-1,1]){ const hd=!!kd[d], sw=d===face; if(!hd&&!sw) continue; // 눌린 방향마다 반사판 (롱홀드 중 반대쪽도 쳐낼 수 있음)
@@ -345,6 +333,9 @@ function draw(){ // 피격: 화면 흔들림 + 붉은 번쩍임
 }
 function scene(hurtAge){
   g.clearRect(0,0,720,360); g.lineJoin='round'; g.lineWidth=3;
+  const FN=n=>n+'px Galmuri11,monospace', BONE='#d8d0b8'; // 디자인 토큰: 뼈색(줄자·글자) · 신호 빨강 #ff5a6e(피해) · 호박 #ffc857(퍼펙트·콤보) · 얼음 #9ad0ff(주인공)
+  { const th=stage>=25?350:stage>=24?15:stage>=19?35:stage>=16?160:stage>=13?320:stage>=7?235:200, p0=running&&ac?clamp(1-(gridT-now())/beatLen(),0,1):1; // 스테이지 묶음마다 배경 색조가 바뀌고 박마다 살짝 밝아짐
+    bgH+=(th-bgH)*.04; const gr=g.createLinearGradient(0,0,0,360), Lh=8+(1-p0)*2.5; gr.addColorStop(0,'hsl('+bgH+',40%,'+(Lh+3)+'%)'); gr.addColorStop(1,'hsl('+bgH+',36%,'+(Lh-2)+'%)'); g.fillStyle=gr; g.fillRect(0,0,720,360) }
   const lvl=LAYERS.filter(n=>streak>=n).length, tn=ac?now():0; // 콤보 레이어가 찰수록 화면이 다채로워짐: 1 박자 링 · 2 배경 빛 · 3 떠오르는 불꽃 · 4 링 겹침 · 5 지면 빛 · 6 무지개 주인공
   lvl>lastLvl&&lvl===6&&(starT=tn); lastLvl=lvl; auroraLvl+=(lvl-auroraLvl)*.04; // 오로라: 레이어마다 빛 띠가 하나씩 흐름. 콤보가 깎이면 부드럽게 사라짐
   if(auroraLvl>.02){ const ph=running?clamp(1-(gridT-tn)/beatLen(),0,1):0, amp=14+(1-ph)*6; g.save(); g.globalCompositeOperation='lighter';
@@ -352,25 +343,24 @@ function scene(hurtAge){
       for(let x=0;x<=720;x+=24) g.lineTo(x,y0+Math.sin(x*.012+tn*.6+b*1.3)*amp); for(let x=720;x>=0;x-=24) g.lineTo(x,y0+th+Math.sin(x*.012+tn*.6+b*1.3+.5)*amp); g.closePath(); g.fill() } g.restore() }
   if(running&&lvl>=1){ const ph=clamp(1-(gridT-tn)/beatLen(),0,1); for(let k=0;k<(lvl>=4?2:1);k++){ const p=(ph+k*.5)%1; g.strokeStyle='hsla('+(200+lvl*25)+',90%,70%,'+(1-p)*.08*(lvl+2)+')'; g.lineWidth=2+lvl; g.beginPath(); g.arc(PX,GY,45+p*(60+lvl*12),0,7); g.stroke() } g.lineWidth=3 }
   if(lvl>=3) for(let k=0;k<lvl*4;k++){ const ph=(tn*.3+k*.37)%1; g.fillStyle='hsla('+(k*47%360)+',90%,70%,'+(1-ph)*.6+')'; g.fillRect((k*97+tn*10)%720,300-ph*260,2+lvl/2,2+lvl/2) }
-  g.fillStyle='#333'; g.fillRect(0,300,720,60);
-  g.strokeStyle='#999'; g.lineWidth=2; g.beginPath(); // 줄자: 칸 하나 = 1박, 0칸 = 공격 위치
+  g.fillStyle='hsl('+bgH+',26%,17%)'; g.fillRect(0,300,720,60); g.fillStyle=BONE+'66'; g.fillRect(0,300,720,2); // 바닥 = 줄자
+  if(running){ const pz=clamp(1-(gridT-tn)/beatLen(),0,1); g.fillStyle='rgba(255,200,87,'+(1-pz)*.22+')'; for(const s of [-1,1]) g.fillRect(s>0?PX+NEAR:PX-NEAR-CELL,302,CELL,58) } // 공격 위치(0칸)가 박마다 반짝
+  g.strokeStyle=BONE+'bb'; g.lineWidth=2; g.beginPath(); // 줄자: 칸 하나 = 1박, 0칸 = 공격 위치
   for(const s of [-1,1]){ g.moveTo(PX+s*NEAR,300); g.lineTo(PX+s*(NEAR+7*CELL),300);
     for(let i=0;i<=7;i++){const x=PX+s*(NEAR+i*CELL); g.moveTo(x,300); g.lineTo(x,i%2?316:324)} }
-  g.stroke(); g.lineWidth=3; g.fillStyle='#888'; g.font='11px Galmuri11,monospace'; g.textAlign='center';
+  g.stroke(); g.lineWidth=3; g.fillStyle=BONE+'aa'; g.font=FN(12); g.textAlign='center';
   for(let i=0;i<7;i++) for(const s of [-1,1]) g.fillText(i,PX+s*(NEAR+(i+.5)*CELL),345);
   g.textAlign='left';
   if(running) [...enemies].sort((a,b)=>b.lane-a.lane).forEach(e=>drawEnemy(e,now()));
   const pc=lvl>=6?'hsl('+(tn*160%360)+',90%,70%)':'#9ad0ff'; g.strokeStyle=pc; g.fillStyle=pc+(lvl>=6?'':'33'); g.lineWidth=3; if(lvl>=6) g.fillStyle='rgba(255,255,255,.12)';
   drawHero(tn,pc,lvl);
-  g.fillStyle='#eee';g.font='16px Galmuri11,monospace';
-  g.fillStyle=hurtAge<.3?'#f55':'#eee'; g.fillText('HP '+'♥'.repeat(Math.max(P||0,0)),20,40);
+  g.font=FN(16); g.fillStyle=hurtAge<.3?'#ff5a6e':BONE; g.fillText('HP '+'♥'.repeat(Math.max(P||0,0)),20,40);
   lost=lost.filter(h=>now()-h.t0<.8); for(const h of lost){ const t=now()-h.t0; g.save(); g.globalAlpha=1-t/.8; g.fillStyle='#f33'; g.translate(h.x,40+t*110); g.rotate(t*3); g.fillText('♥',0,0); g.restore() } // 잃은 하트가 깨져 떨어짐
-  g.fillStyle='#eee';
-  g.fillStyle=streak>=LAYERS[0]?'#fc3':'#888'; g.fillText('COMBO x'+streak+'  ♪'+'■'.repeat(LAYERS.filter(n=>streak>=n).length)+'□'.repeat(LAYERS.filter(n=>streak<n).length),20,64); g.fillStyle='#eee';
-  g.fillText(BOSSES[stage]?'BOSS '+bossMode.toUpperCase()+'  KILLS '+(kills||0)+'/'+bossTotal:'STAGE '+stage+'  KILLS '+(kills||0)+'/'+goal(),480,40);
-  if(BOSSES[stage]&&running){ const B=BOSSES[stage], el=Math.max(0,(now()-bossT0)/beatLen()), c=Math.min(B.beats/8-1,el/8|0); // 보스 HP바 = 곡 남은 시간 (1:30 버티면 격파)
-    g.fillStyle='#400'; g.fillRect(20,6,680,8); g.fillStyle='#f33'; g.fillRect(20,6,680*Math.max(0,1-el/B.beats),8);
-    g.fillStyle='#eee'; g.font='11px Galmuri11,monospace'; g.fillText('BOSS '+(stage-24)+' '+bossMode.toUpperCase()+'  '+B.sect(c),20,26); g.font='16px Galmuri11,monospace' }
+  g.font=FN(16); g.fillStyle=streak>=LAYERS[0]?'#ffc857':BONE+'99'; g.fillText('콤보 '+streak+'  '+'■'.repeat(LAYERS.filter(n=>streak>=n).length)+'□'.repeat(LAYERS.filter(n=>streak<n).length),20,64);
+  g.textAlign='right'; g.fillStyle=BONE; g.fillText(BOSSES[stage]?'보스'+(stage-24)+' '+(bossMode==='hard'?'하드':'노멀')+'  처치 '+(kills||0)+'/'+bossTotal:'스테이지 '+stage+'  처치 '+(kills||0)+'/'+goal(),700,40); g.textAlign='left';
+  if(BOSSES[stage]&&running){ const B=BOSSES[stage], el=Math.max(0,(now()-bossT0)/beatLen()), c=Math.min(B.beats/8-1,el/8|0); // 보스 HP바 = 곡 남은 시간
+    g.fillStyle=BONE+'33'; g.fillRect(20,8,680,6); g.fillStyle='#ff5a6e'; g.fillRect(20,8,680*Math.max(0,1-el/B.beats),6);
+    g.fillStyle=BONE; g.font=FN(11); g.fillText('보스'+(stage-24)+'  '+B.sect(c),20,28); g.font=FN(16) }
   flung=flung.filter(f=>now()-f.t0<.5); for(const f of flung){ const t=now()-f.t0, x=f.x+f.s*(t*900+t*t*900), y=f.y-t*140+t*t*500; g.save(); g.globalCompositeOperation='lighter'; g.globalAlpha=1-t/.5; g.translate(x,y); g.rotate(f.s*t*14); // 패링 성공: 몹이 바깥으로 튕겨 날아감
     f.cols.forEach((c,i)=>{ g.strokeStyle=c; g.lineWidth=3; g.beginPath(); g.arc((i-1)*2,0,f.R*(1-t),0,7); g.stroke() }); g.strokeStyle='#fff'; g.lineWidth=2; g.beginPath(); g.moveTo(-f.s*60,0); g.lineTo(-f.s*14,0); g.stroke(); g.restore() }
   fx=fx.filter(f=>now()-f.t0<.9);
@@ -378,7 +368,9 @@ function scene(hurtAge){
     g.save(); g.globalAlpha=1-a/.9; g.textAlign='center'; g.lineJoin='round'; g.strokeStyle='#000'; g.lineWidth=4; g.fillStyle=f.col;
     g.font='bold '+(20+pop)+'px Galmuri11,monospace'; g.strokeText(f.w,f.x,y); g.fillText(f.w,f.x,y);
     g.font='bold 14px Galmuri11,monospace'; g.strokeText(sub,f.x,y+16); g.fillText(sub,f.x,y+16); g.restore() }
-  if(flash>0){g.fillStyle='rgba(255,255,255,'+flash+')';g.font='24px Galmuri11,monospace';g.fillText(msg,260,80);flash-=.015}
-  if(!running){g.fillStyle='#fff';g.font='28px Galmuri11,monospace';g.textAlign='center'; g.fillText(over||'화면을 누르거나 Space 로 시작',360,200); g.textAlign='left'}
+  if(flash>0){ g.save(); g.globalAlpha=Math.min(1,flash); g.textAlign='center'; g.font=FN(28); g.fillStyle='#ff5a6e'; g.fillText(msg,363,103); g.fillStyle=BONE; g.fillText(msg,360,100); g.restore(); flash-=.015 }
+  if(!running){ g.fillStyle='rgba(8,12,20,.62)'; g.fillRect(0,0,720,360); g.textAlign='center'; // 시작/종료 화면: 제목 + 한 줄 안내
+    if(over){ g.font=FN(26); g.fillStyle='#ffc857'; g.fillText(over,360,150) } else { g.font=FN(44); g.fillStyle='#ff5a6e'; g.fillText('Beat Parry',364,154); g.fillStyle=BONE; g.fillText('Beat Parry',360,150) }
+    g.font=FN(14); g.fillStyle=BONE+'cc'; g.fillText('화면을 누르거나 Space 로 시작',360,200); g.font=FN(12); g.fillStyle=BONE+'88'; g.fillText('키보드 A D 또는 화면 좌우 터치',360,224); g.textAlign='left' }
 }
 (function loop(){ if(ac) step(); draw(); requestAnimationFrame(loop) })();

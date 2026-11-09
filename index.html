@@ -1,19 +1,23 @@
 <!doctype html>
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0c1420">
 <title>Beat Parry</title>
 <style>
 @font-face{font-family:Galmuri11;src:url(fonts/Galmuri11.woff2) format('woff2');font-display:swap}
+:root{--ink:#0c1420;--slate:#1b2a38;--bone:#d8d0b8;--signal:#ff5a6e;--amber:#ffc857}
 html,body{height:100%}
-body{margin:0;background:#141833;color:#cfd8ee;font:12px Galmuri11,monospace;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--ink);color:var(--bone);font:13px Galmuri11,monospace;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
 button,input{font:inherit}
-canvas{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(100vw,200vh);height:auto;background:#12152a}
-#menu{position:fixed;top:max(8px,env(safe-area-inset-top));right:max(8px,env(safe-area-inset-right));z-index:10;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
-#menu button{background:#1a2040;color:#cfd8ee;border:1px solid #2c3764;border-radius:4px;padding:6px 10px;cursor:pointer}
-#menu button:hover{background:#2a3770}
-#list{display:none;grid-template-columns:repeat(4,1fr);gap:4px;padding:8px;background:#141833ee;border:1px solid #2c3764;border-radius:6px;max-height:70vh;overflow:auto;touch-action:pan-y}
+canvas{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(100vw,200vh);height:auto}
+#menu{position:fixed;top:max(8px,env(safe-area-inset-top));right:max(8px,env(safe-area-inset-right));z-index:10;display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+#menu button{background:var(--slate);color:var(--bone);border:2px solid var(--bone);border-radius:0;padding:6px 10px;cursor:pointer;box-shadow:3px 3px 0 #000a;transition:transform .06s,box-shadow .06s}
+#menu button:hover{background:#26394b}
+#menu button:active{transform:translate(2px,2px);box-shadow:1px 1px 0 #000a}
+#menu button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+#list{display:none;grid-template-columns:repeat(4,1fr);gap:6px;padding:10px;background:var(--ink);border:2px solid var(--bone);box-shadow:3px 3px 0 #000a;max-height:70vh;overflow:auto;touch-action:pan-y}
 #list.open{display:grid}
-#list .boss{grid-column:span 2}
+#list .boss{grid-column:span 2;border-color:var(--signal)}
 </style></head><body>
 <div id="menu"><button id="mbtn" type="button">스테이지 선택</button><div id="list"></div></div>
 <canvas id="c" width="720" height="360"></canvas>

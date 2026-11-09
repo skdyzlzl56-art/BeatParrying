@@ -1,0 +1,4 @@
+#!/bin/sh
+# 커밋할 때마다 버전을 한 칸 올려서 같은 커밋에 포함 (직접 version.js 를 고쳐 스테이지했다면 건너뜀)
+git diff --cached --name-only | grep -qx version.js && exit 0
+node tools/bump-version.js >/dev/null && git add version.js

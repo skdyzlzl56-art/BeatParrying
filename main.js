@@ -1,14 +1,14 @@
 document.fonts.load('16px Galmuri11'); // 캔버스 글자도 Galmuri (로드 전엔 monospace 로 폴백)
 
 const $=id=>document.getElementById(id), cv=$('c'), g=cv.getContext('2d');
-let bgH=200, lastLvl=0, auroraLvl=0, starT=-9;
+let busyUntil=0, bgH=200, lastLvl=0, auroraLvl=0, starT=-9;
 let down=0, kd={'-1':0,'1':0}, ac, running=false, over='', P, kills, enemies=[], gridT, ci, flash=0, msg='', fx=[], flung=[], lost=[], hurtT=-9, P_dir=0, pressT=-9;
-let pendG=null, groupEnd=0; const MAX_ACTIVE=5, CELL=45, NEAR=50; let sc=0, nx=0; // MAX_ACTIVE = 동시 적 수
+let pendG=null, groupEnd=0; const CELL=45, NEAR=50; let sc=0, nx=0; 
 const beatLen=()=>60/(+$('bpm').value||120);
 const now=()=>ac.currentTime;
 const win=()=>(+$('win').value||120)/1000;
 let stage=1;
-function setStage(n){ stage=n; enemies=[]; kills=0; nx=sc+3; msg='STAGE '+n; flash=3; setBpm() }
+function setStage(n){ stage=n; enemies=[]; busyUntil=0; kills=0; nx=sc+3; msg='STAGE '+n; flash=3; setBpm() }
 function goStage(n,btn,mode){ btn.blur(); if(!running) start(); if(BOSSES[n]) enterBoss(n,mode); else setStage(n) } // 디버그
 const POOL=()=>stage===24?HOLD_STAGE:stage>18?EXTRA[stage-19]:STAGE_POOLS[(stage-1)%6+1];
 const goal=()=>stage>24?1/0:stage===24?10:stage>18?20:GOALS[(stage-1)%6+1];
@@ -131,7 +131,7 @@ const mf=m=>440*2**((m-69)/12); // MIDI → Hz
 const setBpm=()=>{ $('bpm').value=BPMS[stage] };
 let bossT0=0, bossTotal=0, bossQ=[], bossMode='normal';
 function enterBoss(n=25,mode='normal'){
-  stage=n; bossMode=mode; setBpm(); enemies=[]; kills=0; streak=0; sc=0; nx=0; pendG=null; groupEnd=0; over=''; msg='BOSS STAGE'; flash=3;
+  stage=n; bossMode=mode; setBpm(); enemies=[]; busyUntil=0; kills=0; streak=0; sc=0; nx=0; pendG=null; groupEnd=0; over=''; msg='BOSS STAGE'; flash=3;
   gridT=now()+beatLen()*2; ci=0; bgT=gridT; bgI=0; bossT0=gridT; bossQ=[]; bossTotal=0; // 2박 카운트인 후 0박 = 곡 시작
   BOSSES[n].script[mode].forEach((row,c)=>row.split(' ').forEach(tok=>{ const [,ty,sd,off,len]=/^([a-z])([LR]?)(\d*)(?::(\d+))?$/.exec(tok);
     bossQ.push({b:8*c+(+off||0),len:+len||0,ty,side:sd==='L'?-1:sd==='R'?1:0}) }));
@@ -181,7 +181,7 @@ function bossBg2(at,i){
 }
 function start(){
   ac=ac||new AudioContext(); ac.resume();
-  P=5; kills=0; enemies=[]; sc=0; nx=0; stage=1; over=''; fx=[]; flung=[]; lost=[]; kd[-1]=kd[1]=0; auroraLvl=lastLvl=0; hurtT=-9; msg='';
+  P=5; kills=0; enemies=[]; busyUntil=0; sc=0; nx=0; stage=1; over=''; fx=[]; flung=[]; lost=[]; kd[-1]=kd[1]=0; auroraLvl=lastLvl=0; hurtT=-9; msg='';
   setBpm(); gridT=now()+beatLen()*2; ci=0; running=true; bgT=gridT; bgI=0; streak=0; groupEnd=0; pendG=null; // 2박 카운트인, 이후 normal 한 박 간격 격자에서만 스폰
 }
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
@@ -190,7 +190,7 @@ function newCycle(e,cs){ e.cs=cs; e.sl=beatLen()/e.type.speed; e.slotDone=-1; e.
 function mk(t,type){
   const side=type.side||(Math.random()<.5?-1:1), e={side, type, hp:0};
   if(BOSSES[stage]) bossTotal++; // 보스 HUD 의 전체 마리 수 = 지금까지 나온 마리
-  e.hp=type.hp||type.pat.filter(v=>v===2).length; newCycle(e,t); enemies.push(e);
+  e.hp=type.hp||type.pat.filter(v=>v===2).length; newCycle(e,t); enemies.push(e); busyUntil=Math.max(busyUntil,t+e.N*e.sl);
 }
 function spawnForm(t,f,o={}){ // 편성(FORMS) 하나를 기본 몹(MOBS)으로 풀어서 내보냄. o.boss = 한 사이클만 공격 · o.side = 방향 지정(생략 = 랜덤)
   const m=MOBS[f.mob], shared=o.side||(Math.random()<.5?-1:1);
@@ -201,10 +201,9 @@ function trySpawn(t){
   const b=sc++;
   if(b<nx) return;
   const pool=POOL(), f=(pendG&&pool.includes(pendG))?pendG:pool[Math.floor(Math.random()*pool.length)];
-  if(f.group&&(enemies.length||t<groupEnd)){ pendG=f; nx=b+1; return } // 그룹 편성(4몹·에코·엇박3연타)은 화면이 비고 이전 그룹의 8박이 끝난 뒤에만 시작 → 다른 몹과 안 겹침
+  if(f.group&&(t<busyUntil||t<groupEnd)){ pendG=f; nx=b+1; return } // 그룹 편성(4몹·에코·엇박3연타)은 앞서 나온 몹이 모두 퇴장할 시각(busyUntil·groupEnd)이 지난 뒤에만 시작. 맞췄는지 놓쳤는지는 보지 않음 → 다른 몹과 안 겹침
   if(!f.group&&t<groupEnd){ nx=b+1; return }                              // 그룹이 진행 중인 8박 동안은 다른 몹도 안 나옴
   pendG=null;
-  if(!f.group&&enemies.length>=MAX_ACTIVE){nx+=2; return} // 꽉 찼으면 위상(짝/홀)을 유지한 채 2박 미룸
   if(f.lock){ const n=f.lock===true?8:f.lock; spawnForm(t,f); nx=b+n; groupEnd=t+beatLen()*n; return } // 8박 주기 세트 (4몹: 이번 공격(4~7박)과 겹쳐서 다음 예고(8~11박)가 이어짐)
   nx=b+2+(Math.random()<.5?(stage>=2?2:1):0); // 2박 or 3박 (2몹은 2박 or 4박: 11.. 리듬이 2박 주기라 홀수 박이면 쉼 자리가 채워짐)
   spawnForm(t,f);
@@ -219,7 +218,7 @@ function step(){
     while(e.slotDone<e.N-1&&t>=e.cs+(e.slotDone+1)*e.sl){ e.slotDone++; const v=e.type.pat[e.slotDone]; if(v&&!(v===1&&e.type.quiet)&&(v===1||e.type.atkSound)) tick(e.type.hz,v>=2,e.type.bell||v===4);
     }
     for(const a of e.atks) if(!a.done&&t>(a.held?a.rel:a.time)+win()&&enemies.includes(e)) resolve(e,a,a.held?'HOLD TOO LONG':'MISS',false);
-    if(enemies.includes(e)&&t>=e.cs+e.N*e.sl){ if(e.type.boss) enemies=enemies.filter(o=>o!==e); else newCycle(e,e.cs+e.N*e.sl) } // 보스전 몹은 한 사이클(8박)만 공격하고 퇴장
+    if(enemies.includes(e)&&t>=e.cs+e.N*e.sl){ enemies=enemies.filter(o=>o!==e) } // 몹은 한 사이클만 공격하고 퇴장 (놓쳐도 남아서 반복하지 않음 → 다음 몹과 겹치지 않음) // 보스전 몹은 한 사이클(8박)만 공격하고 퇴장
   }
   if(P<=0){over='YOU DIED  kills:'+kills;running=false}
 }

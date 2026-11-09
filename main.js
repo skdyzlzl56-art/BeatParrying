@@ -1,5 +1,6 @@
 
 const $=id=>document.getElementById(id), cv=$('c'), g=cv.getContext('2d');
+let lastLvl=0, auroraLvl=0, starT=-9;
 let down=0, kd={'-1':0,'1':0}, ac, running=false, over='', P, kills, enemies=[], gridT, ci, flash=0, msg='', fx=[], flung=[], lost=[], hurtT=-9, P_dir=0, pressT=-9;
 let pendG=null, groupEnd=0; const MAX_ACTIVE=5, CELL=45, NEAR=50; let sc=0, nx=0; // MAX_ACTIVE = 동시 적 수
 const beatLen=()=>60/(+$('bpm').value||120);
@@ -179,7 +180,7 @@ function bossBg2(at,i){
 }
 function start(){
   ac=ac||new AudioContext(); ac.resume();
-  P=5; kills=0; enemies=[]; sc=0; nx=0; stage=1; over=''; fx=[]; flung=[]; lost=[]; kd[-1]=kd[1]=0; hurtT=-9; msg='';
+  P=5; kills=0; enemies=[]; sc=0; nx=0; stage=1; over=''; fx=[]; flung=[]; lost=[]; kd[-1]=kd[1]=0; auroraLvl=lastLvl=0; hurtT=-9; msg='';
   setBpm(); gridT=now()+beatLen()*2; ci=0; running=true; bgT=gridT; bgI=0; streak=0; groupEnd=0; pendG=null; // 2박 카운트인, 이후 normal 한 박 간격 격자에서만 스폰
 }
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
@@ -300,7 +301,14 @@ function drawHero(tn,pc,lvl){
   g.save(); g.translate(PX-face*kick,GY); if(hot){ g.shadowColor=pc; g.shadowBlur=holding?14+6*Math.sin(tn*14):20*(1-a/.3) }
   g.rotate(tn*.9+(a<.3?(1-a/.3)*3:0)); g.strokeStyle=pc; g.fillStyle=pc+'22'; g.lineWidth=3; g.beginPath(); g.moveTo(0,-36*pulse); g.lineTo(26*pulse,0); g.lineTo(0,36*pulse); g.lineTo(-26*pulse,0); g.closePath(); g.fill(); g.stroke(); // 코어 마름모
   g.rotate(-tn*1.8); g.strokeStyle='#fff'; g.lineWidth=2; g.beginPath(); g.arc(0,0,13,0,7); g.stroke(); g.fillStyle='#fff'; g.beginPath(); g.arc(0,0,4,0,7); g.fill(); g.restore(); // 안쪽 링 + 점
-  g.save(); g.translate(PX,GY); g.fillStyle=pc; for(let i=0,n=3+Math.min(lvl,3);i<n;i++){ const t=tn*1.6+i*6.283/n; g.save(); g.translate(Math.cos(t)*52,Math.sin(t)*52*.7); g.rotate(t*2); g.fillRect(-3,-3,6,6); g.restore() } g.restore(); // 맴도는 파편 (콤보 따라 늘어남)
+  { const n=3+Math.min(lvl,3), pts=Array.from({length:n},(_,k)=>{ const t=tn*1.6+k*6.283/n; return [Math.cos(t)*52,Math.sin(t)*52*.7,t] }), fl=clamp(1-(tn-starT)/.7,0,1); // 별자리: 콤보가 오를수록 파편을 잇는 선이 늘어남 (1 사슬 · 3 닫힘 · 4 별 모양 · 5 코어와 연결 · 6 달성 순간 번쩍)
+    g.save(); g.translate(PX,GY); g.strokeStyle=pc; g.lineWidth=1; const ln=(p,q,al)=>{ g.globalAlpha=Math.min(1,al+fl); g.beginPath(); g.moveTo(p[0],p[1]); g.lineTo(q[0],q[1]); g.stroke() };
+    if(lvl>=1) for(let k=0;k<n;k++) if(lvl>=3||k<n-1) ln(pts[k],pts[(k+1)%n],.35);
+    if(lvl>=4) for(let k=0;k<n;k++) ln(pts[k],pts[(k+2)%n],.2);
+    if(lvl>=5) for(let k=0;k<n;k++) ln([0,0],pts[k],.18);
+    g.globalAlpha=1; g.fillStyle=pc; for(const p of pts){ g.save(); g.translate(p[0],p[1]); g.rotate(p[2]*2); g.fillRect(-3,-3,6,6); g.restore() }
+    if(fl>0){ g.strokeStyle='rgba(255,255,255,'+fl+')'; g.lineWidth=3; g.beginPath(); g.arc(0,0,(1-fl)*170,0,7); g.stroke() }
+    g.restore() }
   for(const d of [-1,1]){ const hd=!!kd[d], sw=d===face; if(!hd&&!sw) continue; // 눌린 방향마다 반사판 (롱홀드 중 반대쪽도 쳐낼 수 있음)
     const R=hd?66+3*Math.sin(tn*14):a<.12?36+snap*32:36+32*(1-back), fresh=sw&&a<.3;
     g.save(); g.translate(PX,GY); g.scale(d,1); g.lineCap='round';
@@ -318,7 +326,10 @@ function draw(){ // 피격: 화면 흔들림 + 붉은 번쩍임
 function scene(hurtAge){
   g.clearRect(0,0,720,360); g.lineJoin='round'; g.lineWidth=3;
   const lvl=LAYERS.filter(n=>streak>=n).length, tn=ac?now():0; // 콤보 레이어가 찰수록 화면이 다채로워짐: 1 박자 링 · 2 배경 빛 · 3 떠오르는 불꽃 · 4 링 겹침 · 5 지면 빛 · 6 무지개 주인공
-  if(lvl>=2){ const gr=g.createRadialGradient(PX,GY,20,PX,GY,420); gr.addColorStop(0,'hsla('+(tn*30%360)+',80%,50%,'+(.05*lvl)+')'); gr.addColorStop(1,'transparent'); g.fillStyle=gr; g.fillRect(0,0,720,360) }
+  lvl>lastLvl&&lvl===6&&(starT=tn); lastLvl=lvl; auroraLvl+=(lvl-auroraLvl)*.04; // 오로라: 레이어마다 빛 띠가 하나씩 흐름. 콤보가 깎이면 부드럽게 사라짐
+  if(auroraLvl>.02){ const ph=running?clamp(1-(gridT-tn)/beatLen(),0,1):0, amp=14+(1-ph)*6; g.save(); g.globalCompositeOperation='lighter';
+    for(let b=0;b<6;b++){ const w=clamp(auroraLvl-b,0,1); if(w<=0) continue; const y0=36+b*20, th=22+b*3; g.fillStyle='hsla('+(165+b*28)+',80%,60%,'+(.07*w)+')'; g.beginPath();
+      for(let x=0;x<=720;x+=24) g.lineTo(x,y0+Math.sin(x*.012+tn*.6+b*1.3)*amp); for(let x=720;x>=0;x-=24) g.lineTo(x,y0+th+Math.sin(x*.012+tn*.6+b*1.3+.5)*amp); g.closePath(); g.fill() } g.restore() }
   if(running&&lvl>=1){ const ph=clamp(1-(gridT-tn)/beatLen(),0,1); for(let k=0;k<(lvl>=4?2:1);k++){ const p=(ph+k*.5)%1; g.strokeStyle='hsla('+(200+lvl*25)+',90%,70%,'+(1-p)*.08*(lvl+2)+')'; g.lineWidth=2+lvl; g.beginPath(); g.arc(PX,GY,45+p*(60+lvl*12),0,7); g.stroke() } g.lineWidth=3 }
   if(lvl>=3) for(let k=0;k<lvl*4;k++){ const ph=(tn*.3+k*.37)%1; g.fillStyle='hsla('+(k*47%360)+',90%,70%,'+(1-ph)*.6+')'; g.fillRect((k*97+tn*10)%720,300-ph*260,2+lvl/2,2+lvl/2) }
   g.fillStyle='#333'; g.fillRect(0,300,720,60);

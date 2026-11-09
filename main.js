@@ -7,7 +7,7 @@ const now=()=>ac.currentTime;
 const win=()=>(+$('win').value||120)/1000;
 let stage=1;
 function setStage(n){ stage=n; enemies=[]; kills=0; nx=sc+3; msg='STAGE '+n; flash=3; setBpm() }
-function goStage(n,btn){ btn.blur(); if(!running) start(); if(BOSSES[n]) enterBoss(n); else setStage(n) } // 디버그
+function goStage(n,btn,mode){ btn.blur(); if(!running) start(); if(BOSSES[n]) enterBoss(n,mode); else setStage(n) } // 디버그
 const POOL=()=>stage===24?HOLD_STAGE:stage>18?EXTRA[stage-19]:STAGE_POOLS[(stage-1)%6+1];
 const goal=()=>stage>24?1/0:stage===24?10:stage>18?20:GOALS[(stage-1)%6+1];
 
@@ -99,11 +99,11 @@ function missSfx(at=now()){ drum(95,40,.22,.35,at); noise(at,'lowpass',500,.25,.
 function note(f,at,dur,vol,type){ const o=ac.createOscillator(),v=ac.createGain(); o.type=type; o.frequency.value=f; v.gain.setValueAtTime(.001,at); v.gain.linearRampToValueAtTime(vol,at+ATK); v.gain.exponentialRampToValueAtTime(.001,at+dur); o.connect(v).connect(OUT()); o.start(at); o.stop(at+dur+.01) }
 const mf=m=>440*2**((m-69)/12); // MIDI → Hz
 const setBpm=()=>{ $('bpm').value=BPMS[stage] };
-let bossT0=0, bossTotal=0, bossQ=[];
-function enterBoss(n=25){
-  stage=n; setBpm(); enemies=[]; kills=0; streak=0; sc=0; nx=0; pendG=null; groupEnd=0; over=''; msg='BOSS STAGE'; flash=3;
+let bossT0=0, bossTotal=0, bossQ=[], bossMode='normal';
+function enterBoss(n=25,mode='normal'){
+  stage=n; bossMode=mode; setBpm(); enemies=[]; kills=0; streak=0; sc=0; nx=0; pendG=null; groupEnd=0; over=''; msg='BOSS STAGE'; flash=3;
   gridT=now()+beatLen()*2; ci=0; bgT=gridT; bgI=0; bossT0=gridT; bossQ=[]; bossTotal=0; // 2박 카운트인 후 0박 = 곡 시작
-  BOSSES[n].script.forEach((row,c)=>row.split(' ').forEach(tok=>{ const [,ty,sd,off]=/^([a-z])([LR]?)(\d*)$/.exec(tok);
+  BOSSES[n].script[mode].forEach((row,c)=>row.split(' ').forEach(tok=>{ const [,ty,sd,off]=/^([a-z])([LR]?)(\d*)$/.exec(tok);
     bossQ.push({b:8*c+(+off||0),ty,side:sd==='L'?-1:sd==='R'?1:0}) }));
 }
 function bossBeat(t,b){
@@ -269,10 +269,10 @@ function draw(){
   g.fillStyle='#eee';g.font='16px monospace';
   g.fillText('HP '+'♥'.repeat(Math.max(P||0,0)),20,40);
   g.fillStyle=streak>=LAYERS[0]?'#fc3':'#888'; g.fillText('COMBO x'+streak+'  ♪'+'■'.repeat(LAYERS.filter(n=>streak>=n).length)+'□'.repeat(LAYERS.filter(n=>streak<n).length),20,64); g.fillStyle='#eee';
-  g.fillText(BOSSES[stage]?'BOSS  KILLS '+(kills||0)+'/'+bossTotal:'STAGE '+stage+'  KILLS '+(kills||0)+'/'+goal(),480,40);
+  g.fillText(BOSSES[stage]?'BOSS '+bossMode.toUpperCase()+'  KILLS '+(kills||0)+'/'+bossTotal:'STAGE '+stage+'  KILLS '+(kills||0)+'/'+goal(),480,40);
   if(BOSSES[stage]&&running){ const B=BOSSES[stage], el=Math.max(0,(now()-bossT0)/beatLen()), c=Math.min(B.beats/8-1,el/8|0); // 보스 HP바 = 곡 남은 시간 (1:30 버티면 격파)
     g.fillStyle='#400'; g.fillRect(20,6,680,8); g.fillStyle='#f33'; g.fillRect(20,6,680*Math.max(0,1-el/B.beats),8);
-    g.fillStyle='#eee'; g.font='11px monospace'; g.fillText('BOSS '+(stage-24)+'  '+B.sect(c),20,26); g.font='16px monospace' }
+    g.fillStyle='#eee'; g.font='11px monospace'; g.fillText('BOSS '+(stage-24)+' '+bossMode.toUpperCase()+'  '+B.sect(c),20,26); g.font='16px monospace' }
   if(flash>0){g.fillStyle='rgba(255,255,255,'+flash+')';g.font='24px monospace';g.fillText(msg,260,80);flash-=.015}
   if(!running){g.fillStyle='#fff';g.font='28px monospace';g.fillText(over||'Space / Enter 로 시작',220,200)}
 }

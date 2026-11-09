@@ -66,9 +66,9 @@ const BPMS=[0,120,120,120,120,120,120, 140,150,130,160,150,170, 110,125,140, 150
 // 공격은 시작 +6박 근처 (s는 5.5·6.5·7.5). 반대 방향 공격끼리 1박 이상 떨어지게 짰음.
 // 곡 구성에 맞춘 배치: 인트로·벌스=킥(짝수 박)에 공격 · 후렴 직전 스네어 롤(c9·c19) = g(4연타) · 후렴 첫 박 크래시 = 새 세트 · 브레이크(드럼 없음) = 꾹 누르기 · 마지막 g 의 공격이 188~191박, 192박에 크래시
 // normal = 사이클당 1~2마리 · hard = 2~3마리 + 엇박3연타·에코 비중 증가
-const BOSS_SCRIPT={normal:['cL','cR','cL cR2','dL','cR cL2','hR','oL cR2','dR cL2','oR','g','sR','dL cR2','oL cR4','e','hR','cL','dL cR3','oR cL2','sL cR3','g','sR','e','dL cR2','g'],
- hard:['cL cR2','cR dL2','cL cR2','dL cR2','oR cL2','hR oL3','dL cR2 oR4','sR dL3','oL dR2 cL4','g','sR dL2','e','oL dR2 cL4','g','hL','dR cL2','dL cR2 oR4','e','sL dR3','g','dR oL2 cL4','e','sR dL2','g']};
-const BOSS_FORM={c:'basic',d:'double',o:'off',s:'off3',g:'call4',e:'echo',h:'hold'}; // 대본 토큰 → 편성
+const BOSS_SCRIPT={normal:['cL','cR','cL cR2','dL','cR cL2','hR','oL cR2','dR cL2','oR','g','sR','dL cR2','oL cR4','e','lR','cL','dL cR3','oR cL2','sL cR3','g','sR','e','dL cR2','g'],
+ hard:['cL cR2','cR dL2','cL cR2','dL cR2','oR cL2','hR oL3','dL cR2 oR4','sR dL3','oL dR2 cL4','g','sR dL2','e','oL dR2 cL4','g','lL','dR cL2','dL cR2 oR4','e','sL dR3','g','dR oL2 cL4','e','sR dL2','g']};
+const BOSS_FORM={c:'basic',d:'double',o:'off',s:'off3',g:'call4',e:'echo',h:'hold',l:'long'}; // 대본 토큰 → 편성
 const BOSS_LVL=[0,0, 1,1,1,1, 2,2,2,2, 4,4,4,4, 3,3, 2,2,2,2, 5,5,5,5]; // 사이클별 편곡: 0 인트로 · 1 벌스 · 2 빌드 · 3 브레이크 · 4 후렴 · 5 피날레
 // 진행 A(벌스·빌드) Em C G D / 진행 B(후렴·브레이크·피날레) C D Em B. 마디별 근음 · 3화음 · 멜로디(4마디 x 8분음표 8칸, 0 = 쉼)
 const BP=[{root:[82.41,65.41,98,73.42], chord:[[64,67,71],[60,64,67],[67,71,74],[62,66,69]], mel:[71,0,76,0,74,0,71,0, 72,0,76,0,79,0,76,0, 74,0,79,0,76,74,71,0, 69,0,74,0,78,0,81,0]},

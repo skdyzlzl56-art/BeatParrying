@@ -116,20 +116,22 @@ function bossBeat(t,b){
   for(const o of bossQ) if(o.b===b){ spawnForm(t,FORMS[BOSS_FORM[o.ty]],{boss:true,side:o.side}) }
   if(b===BOSSES[stage].beats+2){ over='BOSS CLEAR!  kills:'+kills+'/'+bossTotal; running=false } // 마지막 크래시가 울린 뒤 종료
 }
+const G=n=>streak>=LAYERS[n]; // 보스 곡도 콤보 레이어가 찰 때만 해당 파트가 울림 (0 하이햇 · 1 스네어 · 2 베이스 · 3 아르페지오 · 4 멜로디 · 5 옥타브)
 function bossBg(at,i){ // i = 8분음표 번호, 384 = 곡 끝
   if(i>=384){ if(i===384){ drum(140,40,.5,.5,at); noise(at,'highpass',3000,.4,1.2); for(const n of [40,52,59,64,67,71]) note(mf(n),at,2,.06,'sawtooth') } return }
   const c=i>>4, ir=i%16, L=BOSS_LVL[c], s=i%8, beat=i%2===0, bar=(i>>3)%4, P=BP[L>=3?1:0], root=P.root[bar], ch=P.chord[bar], m=P.mel[bar*8+s], full=L>=4, drums=L!==3;
   if(drums&&(L<2?s%4===0:beat)) drum(full?125:110,42,.16,.3,at);                                   // 킥: 인트로·벌스 1·3박 → 빌드부터 4분음표
-  if(drums&&L>=1&&(full?true:!beat)) noise(at,'highpass',7000,full&&beat?.07:.12,.04);              // 하이햇: 후렴은 8분음표 전부
-  if(drums&&L>=1&&(s===2||s===6)) noise(at,'bandpass',1800,.3,.12);                                 // 스네어
+  if(drums&&L>=1&&G(0)&&(full?true:!beat)) noise(at,'highpass',7000,full&&beat?.07:.12,.04);              // 하이햇: 후렴은 8분음표 전부
+  if(drums&&L>=1&&G(1)&&(s===2||s===6)) noise(at,'bandpass',1800,.3,.12);                                 // 스네어
   if(L===2&&(c===9||c===19)&&ir>=12) noise(at,'bandpass',1800,.1+.05*(ir-12),.08);                  // 후렴 직전 스네어 롤
   if((c===10||c===20)&&ir===0) noise(at,'highpass',3000,.35,1);                                     // 후렴 시작 크래시
   if(L===3){ if(s===0) note(root,at,1.8,.12,'sine'); if(s===0||s===4) for(const n of ch) note(mf(n),at,1.8,.03,'triangle') } // 브레이크: 드럼 빼고 서브 + 패드
+  else if(!G(2)){}
   else if(L<2){ if(beat&&L===1||s%4===0) note(root,at,.2,.09,'square') }                            // 인트로·벌스 베이스
   else note(beat?root:root*2,at,.12,.08,'sawtooth');                                                // 빌드~: 8분음표 베이스
   if(L===0&&s===0) note(mf(ch[0]+24),at,.9,.03,'sine');                                             // 인트로: 높은 핑
-  if(L>=2&&drums) note(mf(ch[[0,1,2,1,0,1,2,1][s]]+(L===5?24:12)),at,.14,.035,'sawtooth');           // 아르페지오
-  if(m){ if(L===2) note(mf(m),at,.3,.08,'triangle'); else if(L===3) note(mf(m),at,.5,.06,'sine'); else if(full){ note(mf(m),at,.3,.06,'square'); if(L===5) note(mf(m+12),at,.3,.04,'sine') } }
+  if(L>=2&&drums&&G(3)) note(mf(ch[[0,1,2,1,0,1,2,1][s]]+(L===5?24:12)),at,.14,.035,'sawtooth');           // 아르페지오
+  if(m&&G(4)){ if(L===2) note(mf(m),at,.3,.08,'triangle'); else if(L===3) note(mf(m),at,.5,.06,'sine'); else if(full){ note(mf(m),at,.3,.06,'square'); if(L===5&&G(5)) note(mf(m+12),at,.3,.04,'sine') } }
 }
 // 보스2: 160BPM 전투 BGM. 8분음표 안에 16분음표를 한 번 더 쪼개서(at+beatLen()/4) 하이햇·베이스·아르페지오를 빽빽하게. 480 = 곡 끝
 function bossBg2(at,i){
@@ -137,18 +139,19 @@ function bossBg2(at,i){
   if(i>=END){ if(i===END){ drum(150,38,.6,.55,at); noise(at,'highpass',3000,.45,1.4); for(const n of B.end||[38,50,57,62,65,69]) note(mf(n),at,2,.06,'sawtooth') } return }
   const bl=beatLen(), at2=at+bl/4, c=i>>4, ir=i%16, L=B.lvl[c], s=i%8, beat=i%2===0, bar=(i>>3)%4, P=B.bp[L>=3?1:0], root=P.root[bar], ch=P.chord[bar], m=P.mel[bar*8+s], full=L>=4, drums=L!==3;
   if(drums&&(L===0?s%4===0:(beat||s===7))) drum(full?135:115,42,.15,.32,at);                          // 킥: 인트로 1·3박 → 4분음표 + 못갖춘 8분(s=7) 당김음
-  if(drums&&L>=1){ noise(at,'highpass',8000,beat?.09:.13,.03); noise(at2,'highpass',8000,.06,.03) }     // 하이햇 16분음표
-  if(drums&&L>=1&&(s===2||s===6)) noise(at,'bandpass',1800,.34,.12);                                  // 스네어 (2·4박)
+  if(drums&&L>=1&&G(0)){ noise(at,'highpass',8000,beat?.09:.13,.03); noise(at2,'highpass',8000,.06,.03) }     // 하이햇 16분음표
+  if(drums&&L>=1&&G(1)&&(s===2||s===6)) noise(at,'bandpass',1800,.34,.12);                                  // 스네어 (2·4박)
   if(L===0&&c===1&&ir>=8){ const v=.06+.02*(ir-8); noise(at,'bandpass',1800,v,.06); noise(at2,'bandpass',1800,v,.06) } // 인트로 끝 스네어 롤
   if(L===1&&(c===19)&&ir>=8 || L===2&&c===9&&ir>=8 || c===23&&ir>=8){ const v=.1+.04*(ir-8); noise(at,'bandpass',1800,v,.06); noise(at2,'bandpass',1800,v,.06) } // 후렴 직전 롤
   if((c===10||c===20||c===24)&&ir===0) noise(at,'highpass',3000,.38,1);                               // 후렴 시작 크래시
   if(L===3){ if(s===0) note(root,at,1.4,.12,'sine'); if(s===0||s===4) for(const n of ch) note(mf(n),at,1.4,.03,'triangle') } // 브레이크: 서브 + 패드
+  else if(!G(2)){}
   else if(L===0){ note(root,at,.07,.07,'square'); note(root,at2,.07,.05,'square') }                   // 인트로: 16분음표 펄스 베이스
   else if(L===1){ note(beat?root:root*2,at,.1,.08,'sawtooth'); if(beat) note(root,at2,.07,.05,'sawtooth') } // 벌스: 말달리는 베이스
   else { note(beat?root:root*2,at,.1,.08,'sawtooth'); if(L===5||beat) note(root,at2,.07,.05,'sawtooth') }  // 프리~: 옥타브 점프 (+ 피날레 16분 갤럽)
-  if(L>=2&&drums){ const k=s*2, o=L===5?24:12; note(mf(ch[k%3]+o),at,.08,.03,'square'); note(mf(ch[(k+1)%3]+o),at2,.08,.03,'square') } // 16분음표 아르페지오
-  if(full&&(s===0||s===3||s===6)){ note(root*2,at,.25,.06,'sawtooth'); note(root*3,at,.25,.05,'sawtooth') } // 파워코드 스탭 3+3+2
-  if(m){ if(L===1) note(mf(m),at,.25,.06,'triangle'); else if(L===2) {note(mf(m),at,.25,.07,'square'); note(mf(m+12),at,.2,.03,'sine')} else if(L===3) note(mf(m),at,.5,.06,'sine'); else { note(mf(m),at,.25,.07,'square'); note(mf(m+12),at,.25,L===5?.05:.03,L===5?'sawtooth':'sine') } }
+  if(L>=2&&drums&&G(3)){ const k=s*2, o=L===5?24:12; note(mf(ch[k%3]+o),at,.08,.03,'square'); note(mf(ch[(k+1)%3]+o),at2,.08,.03,'square') } // 16분음표 아르페지오
+  if(full&&G(3)&&(s===0||s===3||s===6)){ note(root*2,at,.25,.06,'sawtooth'); note(root*3,at,.25,.05,'sawtooth') } // 파워코드 스탭 3+3+2
+  if(m&&G(4)){ if(L===1) note(mf(m),at,.25,.06,'triangle'); else if(L===2) {note(mf(m),at,.25,.07,'square'); if(G(5)) note(mf(m+12),at,.2,.03,'sine')} else if(L===3) note(mf(m),at,.5,.06,'sine'); else { note(mf(m),at,.25,.07,'square'); if(G(5)) note(mf(m+12),at,.25,L===5?.05:.03,L===5?'sawtooth':'sine') } }
 }
 function start(){
   ac=ac||new AudioContext(); ac.resume();
@@ -270,6 +273,10 @@ function draw(){ // 피격: 화면 흔들림 + 붉은 번쩍임
 }
 function scene(hurtAge){
   g.clearRect(0,0,720,360); g.lineJoin='round'; g.lineWidth=3;
+  const lvl=LAYERS.filter(n=>streak>=n).length, tn=ac?now():0; // 콤보 레이어가 찰수록 화면이 다채로워짐: 1 박자 링 · 2 배경 빛 · 3 떠오르는 불꽃 · 4 링 겹침 · 5 지면 빛 · 6 무지개 주인공
+  if(lvl>=2){ const gr=g.createRadialGradient(PX,GY,20,PX,GY,420); gr.addColorStop(0,'hsla('+(tn*30%360)+',80%,50%,'+(.05*lvl)+')'); gr.addColorStop(1,'transparent'); g.fillStyle=gr; g.fillRect(0,0,720,360) }
+  if(running&&lvl>=1){ const ph=clamp(1-(gridT-tn)/beatLen(),0,1); for(let k=0;k<(lvl>=4?2:1);k++){ const p=(ph+k*.5)%1; g.strokeStyle='hsla('+(200+lvl*25)+',90%,70%,'+(1-p)*.08*(lvl+2)+')'; g.lineWidth=2+lvl; g.beginPath(); g.arc(PX,GY,45+p*(60+lvl*12),0,7); g.stroke() } g.lineWidth=3 }
+  if(lvl>=3) for(let k=0;k<lvl*4;k++){ const ph=(tn*.3+k*.37)%1; g.fillStyle='hsla('+(k*47%360)+',90%,70%,'+(1-ph)*.6+')'; g.fillRect((k*97+tn*10)%720,300-ph*260,2+lvl/2,2+lvl/2) }
   g.fillStyle='#333'; g.fillRect(0,300,720,60);
   g.strokeStyle='#999'; g.lineWidth=2; g.beginPath(); // 줄자: 칸 하나 = 1박, 0칸 = 공격 위치
   for(const s of [-1,1]){ g.moveTo(PX+s*NEAR,300); g.lineTo(PX+s*(NEAR+7*CELL),300);
@@ -278,7 +285,7 @@ function scene(hurtAge){
   for(let i=0;i<7;i++) for(const s of [-1,1]) g.fillText(i,PX+s*(NEAR+(i+.5)*CELL),345);
   g.textAlign='left';
   if(running) [...enemies].sort((a,b)=>b.lane-a.lane).forEach(e=>drawEnemy(e,now()));
-  g.strokeStyle='#9ad0ff'; g.fillStyle='#9ad0ff33'; g.lineWidth=3;
+  const pc=lvl>=6?'hsl('+(tn*160%360)+',90%,70%)':'#9ad0ff'; g.strokeStyle=pc; g.fillStyle=pc+(lvl>=6?'':'33'); g.lineWidth=3; if(lvl>=6) g.fillStyle='rgba(255,255,255,.12)';
   poly([[0,-1],[.9,.8],[-.9,.8]],PX,GY,40,0,1,1); g.fill(); g.stroke();
   if(ac&&(now()-pressT<.2||down)){g.strokeStyle='#fff';g.lineWidth=7;g.beginPath();g.arc(PX,GY,62,P_dir>0?-1.1:Math.PI-1.1,P_dir>0?1.1:Math.PI+1.1);g.stroke();g.lineWidth=3}
   g.fillStyle='#eee';g.font='16px monospace';

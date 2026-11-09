@@ -235,13 +235,7 @@ function resolve(e,a,txt,ok){
       e.type.pat.forEach((v,i)=>{ if(v===2&&i>e.slotDone&&e.type.atkSound) tick(e.type.hz,true,e.type.bell,e.cs+i*e.sl) }) } /* 일찍 죽여도 남은 공격 소리는 그대로 */ } else { P-=DMG; hurtT=now(); lost.push({x:20+9.6*(3+Math.max(P,0)),t0:hurtT}); missSfx() }
 }
 const dirOf=k=>(k==='a'||k==='arrowleft')?-1:(k==='d'||k==='arrowright')?1:0;
-addEventListener('keydown',e=>{
-  if(e.repeat) return;
-  const k=e.key.toLowerCase();
-  if(k===' '||k==='enter'){ if(!running) start(); return }
-  const dir=dirOf(k);
-  if(!dir||!running) return;
-  e.preventDefault();
+function press(dir){ // 키보드·터치 공통: dir -1 = 왼쪽 · 1 = 오른쪽
   P_dir=dir; pressT=now(); kd[dir]=1; down=dir;
   const t=now()-(+$('off').value||0)/1000;
   const c=enemies.flatMap(e=>e.atks.filter(a=>!a.done&&!a.held&&Math.abs(t-a.time)<=win()).map(a=>({e,a})));
@@ -254,11 +248,8 @@ addEventListener('keydown',e=>{
     const dt=t-a.time, ms=Math.round(dt*1000)+'ms';
     if(Math.abs(dt)<=win()/2) resolve(en,a,'PERFECT '+ms,true);
     else resolve(en,a,(dt<0?'EARLY ':'LATE ')+ms,true); }
-});
-
-addEventListener('keyup',e=>{ // 꾹 누르기 판정: 뗄 타이밍(rel) ±win 이면 성공, 너무 일찍 떼면 실패 (너무 늦으면 step 에서 HOLD TOO LONG)
-  const dir=dirOf(e.key.toLowerCase());
-  if(!dir||!running) return;
+}
+function release(dir){ // 꾹 누르기 판정: 뗄 타이밍(rel) ±win 이면 성공, 너무 일찍 떼면 실패 (너무 늦으면 step 에서 HOLD TOO LONG)
   kd[dir]=0; down=kd[P_dir]?P_dir:kd[-1]?-1:kd[1]?1:0;
   const t=now()-(+$('off').value||0)/1000;
   for(const en of enemies.slice()) for(const a of en.atks) if(a.held&&!a.done&&a.dir===dir&&enemies.includes(en)){
@@ -266,7 +257,21 @@ addEventListener('keyup',e=>{ // 꾹 누르기 판정: 뗄 타이밍(rel) ±win 
     if(dt<-win()) resolve(en,a,'RELEASED EARLY '+ms,false);
     else if(Math.abs(dt)<=win()/2) resolve(en,a,'PERFECT '+ms,true);
     else resolve(en,a,(dt<0?'EARLY ':'LATE ')+ms,true) }
+}
+addEventListener('keydown',e=>{
+  if(e.repeat) return;
+  const k=e.key.toLowerCase();
+  if(k===' '||k==='enter'){ if(!running) start(); return }
+  const dir=dirOf(k);
+  if(!dir||!running) return;
+  e.preventDefault(); press(dir);
 });
+addEventListener('keyup',e=>{ const dir=dirOf(e.key.toLowerCase()); if(dir&&running) release(dir) });
+// 터치·마우스: 화면 왼쪽 절반 = 왼쪽 패링, 오른쪽 절반 = 오른쪽 패링 (멀티터치 가능). 멈춰 있을 땐 탭하면 시작
+const ptr=new Map();
+addEventListener('pointerdown',e=>{ if(e.target.closest('#menu')) return; e.preventDefault(); if(!running){ start(); return } const dir=e.clientX<innerWidth/2?-1:1; ptr.set(e.pointerId,dir); press(dir) });
+const pUp=e=>{ const dir=ptr.get(e.pointerId); if(dir){ ptr.delete(e.pointerId); if(running) release(dir) } };
+addEventListener('pointerup',pUp); addEventListener('pointercancel',pUp);
 
 // ---- 그리기: 도형. 적 = 글리치 파편(shard), 주인공 = 삼각형 ----
 function poly(pts,x,y,r,rot,sx,sy){
@@ -360,6 +365,6 @@ function scene(hurtAge){
     g.font='bold '+(20+pop)+'px Galmuri11,monospace'; g.strokeText(f.w,f.x,y); g.fillText(f.w,f.x,y);
     g.font='bold 14px Galmuri11,monospace'; g.strokeText(sub,f.x,y+16); g.fillText(sub,f.x,y+16); g.restore() }
   if(flash>0){g.fillStyle='rgba(255,255,255,'+flash+')';g.font='24px Galmuri11,monospace';g.fillText(msg,260,80);flash-=.015}
-  if(!running){g.fillStyle='#fff';g.font='28px Galmuri11,monospace';g.fillText(over||'Space / Enter 로 시작',220,200)}
+  if(!running){g.fillStyle='#fff';g.font='28px Galmuri11,monospace';g.textAlign='center'; g.fillText(over||'화면을 누르거나 Space 로 시작',360,200); g.textAlign='left'}
 }
 (function loop(){ if(ac) step(); draw(); requestAnimationFrame(loop) })();

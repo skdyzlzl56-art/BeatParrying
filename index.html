@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Beat Parry</title>
+<style>
+@font-face{font-family:Galmuri11;src:url(fonts/Galmuri11.woff2) format('woff2');font-display:swap}
+html,body{height:100%}
+body{margin:0;background:#141833;color:#cfd8ee;font:12px Galmuri11,monospace;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+button,input{font:inherit}
+canvas{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(100vw,200vh);height:auto;background:#12152a}
+#menu{position:fixed;top:max(8px,env(safe-area-inset-top));right:max(8px,env(safe-area-inset-right));z-index:10;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+#menu button{background:#1a2040;color:#cfd8ee;border:1px solid #2c3764;border-radius:4px;padding:6px 10px;cursor:pointer}
+#menu button:hover{background:#2a3770}
+#list{display:none;grid-template-columns:repeat(4,1fr);gap:4px;padding:8px;background:#141833ee;border:1px solid #2c3764;border-radius:6px;max-height:70vh;overflow:auto;touch-action:pan-y}
+#list.open{display:grid}
+#list .boss{grid-column:span 2}
+</style></head><body>
+<div id="menu"><button id="mbtn" type="button">스테이지 선택</button><div id="list"></div></div>
+<canvas id="c" width="720" height="360"></canvas>
+<div hidden><input id="bpm" value="120"><input id="off" value="0"><input id="win" value="120"></div>
+<script src="stages.js"></script>
+<script src="main.js"></script>
+<script>
+{ const list=document.getElementById('list'), add=(label,n,mode,cls)=>{ const b=document.createElement('button'); b.type='button'; b.textContent=label; if(cls) b.className=cls;
+    b.onclick=()=>{ goStage(n,b,mode); list.classList.remove('open') }; list.appendChild(b) };
+  for(let n=1;n<=24;n++) add('ST'+n,n);
+  for(let b=1;b<=3;b++) for(const m of ['normal','hard']) add('BOSS'+b+' '+(m==='hard'?'HARD':'NORMAL'),24+b,m,'boss');
+  document.getElementById('mbtn').onclick=()=>list.classList.toggle('open') }
+</script>
+</body></html>
